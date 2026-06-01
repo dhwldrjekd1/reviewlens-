@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>ReviewLens — 마케팅 대시보드</title>
+<style>
+:root{
+  --bg:#f4f5f7; --card:#fff; --line:#edeef2; --text:#222; --muted:#8a90a0;
+  --green:#23c197; --blue:#4a90e2; --purple:#7c6cf0; --orange:#f5a623;
+  --red:#ef5878; --gray:#cdd2db;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:13px}
+.app{display:flex;min-height:100vh}
+
+/* ---- sidebar ---- */
+.side{width:212px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 14px}
+.logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;margin:6px 8px 26px}
+.logo .dot{width:22px;height:22px;border-radius:50%;border:4px solid #f0506e;display:inline-block}
+.nav a{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:9px;color:#5c6270;text-decoration:none;font-weight:600;margin-bottom:3px}
+.nav a.on{background:#fdeef0;color:#ef4f6d}
+.nav a:hover:not(.on){background:#f6f7f9}
+.nav svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8}
+.side .grow{flex:1}
+.conn{background:#f6f7f9;border-radius:10px;padding:12px;font-size:11px;color:var(--muted)}
+.conn b{color:#444;font-size:12px}
+.conn .ln{height:5px;border-radius:3px;background:#e3e6ec;margin-top:8px;overflow:hidden}
+.conn .ln i{display:block;height:100%;width:100%;background:var(--green)}
+.setting{display:flex;align-items:center;gap:10px;padding:11px 12px;color:#5c6270;font-weight:600;margin-top:6px}
+
+/* ---- topbar ---- */
+.main{flex:1;display:flex;flex-direction:column;min-width:0}
+.top{display:flex;align-items:center;gap:14px;padding:18px 26px;background:var(--bg)}
+.top h1{font-size:23px;font-weight:800;white-space:nowrap}
+.search{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 13px;color:var(--muted)}
+.top .right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.search input{border:0;outline:0;flex:1;font-size:13px}
+.pill{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 13px;color:#555;white-space:nowrap}
+.export{background:#f5455c;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer}
+.bell{position:relative;width:20px;height:20px}
+.bell .b{position:absolute;top:-6px;right:-6px;background:#f5455c;color:#fff;border-radius:9px;font-size:9px;padding:1px 5px;font-weight:700}
+.me{display:flex;align-items:center;gap:9px}
+.me .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ffb199,#ff6f91)}
+.me small{display:block;color:var(--muted);font-size:10px}
+.me b{font-size:12px}
+
+/* ---- grid ---- */
+.wrap{padding:6px 26px 30px;display:flex;flex-direction:column;gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.kpi{border-radius:14px;padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start}
+.kpi .lab{font-size:12px;color:#7a7f8c;font-weight:600}
+.kpi .val{font-size:30px;font-weight:800;margin:8px 0 6px}
+.kpi .chg{font-size:11px;color:#7a7f8c}
+.kpi .up{color:#f5455c;font-weight:700}
+.kpi .ic{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff}
+.k1{background:#fdeef0}.k1 .ic{background:#f0617e}
+.k2{background:#e9f8f2}.k2 .ic{background:#23c197}
+.k3{background:#eef0fd}.k3 .ic{background:#7c6cf0}
+.k4{background:#fff5e9}.k4 .ic{background:#f5a623}
+
+.row{display:grid;gap:16px}
+.r2{grid-template-columns:1.35fr 1fr 1fr}
+.r3{grid-template-columns:1fr 1.5fr 1.1fr 1.2fr}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+.panel h3{font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.panel h3 .q{color:#c2c6cf;font-weight:400}
+.head{display:flex;justify-content:space-between;align-items:center}
+.sel{font-size:11px;color:#666;border:1px solid var(--line);border-radius:7px;padding:4px 9px}
+.legend{display:flex;gap:14px;font-size:11px;color:#888;margin-bottom:6px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+/* category bars */
+.catbar{display:flex;align-items:center;gap:10px;margin:13px 0;font-size:12px}
+.catbar .nm{width:54px;color:#555}
+.catbar .tr{flex:1;background:#f1f2f5;border-radius:6px;height:13px;overflow:hidden}
+.catbar .tr i{display:block;height:100%;border-radius:6px}
+.catbar .pc{width:42px;text-align:right;font-weight:700;color:#444}
+.axis{display:flex;justify-content:space-between;color:#b7bcc6;font-size:10px;margin-top:8px;padding-left:64px}
+
+/* attribute stacked */
+.attr{margin:13px 0;font-size:11px}
+.attr .nm{color:#555;margin-bottom:4px;font-size:12px}
+.attr .st{display:flex;height:18px;border-radius:5px;overflow:hidden;color:#fff;font-weight:700}
+.attr .st span{display:flex;align-items:center;justify-content:center}
+
+/* keywords */
+.kw{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.kw div{border-radius:9px;padding:11px;text-align:center;font-weight:700}
+.kw small{display:block;font-size:11px;font-weight:600;margin-bottom:3px}
+.t-g{background:#e9f8f2;color:#1a9c79}.t-b{background:#eaf2fc;color:#3a78c8}
+.t-p{background:#efecfd;color:#6a5ae0}.t-o{background:#fff3e3;color:#d98a13}
+.t-r{background:#fdecef;color:#e0436a}
+
+/* table */
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;color:#9a9fac;font-weight:600;font-size:11px;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:10px 8px;border-bottom:1px solid #f4f5f7}
+.thumb{width:26px;height:26px;border-radius:7px;background:#eef0f4;display:inline-block;vertical-align:middle;margin-right:8px}
+.badge{padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700}
+.b-red{background:#fdecef;color:#e0436a}.b-yel{background:#fff5e3;color:#d98a13}.b-grn{background:#e9f8f2;color:#1a9c79}
+
+/* campaign */
+.camp{display:flex;align-items:center;gap:16px}
+.camp .met{flex:1}
+.camp .met .m{margin-bottom:14px}
+.camp .met .lab{font-size:11px;color:#8a90a0}
+.camp .met .v{font-size:19px;font-weight:800}
+.camp .met .up{color:#23c197;font-size:11px;font-weight:700}
+
+/* insight quotes */
+.quote{border-left:3px solid #e6e8ee;background:#fafbfc;border-radius:8px;padding:12px 14px;margin-bottom:10px;font-size:12px;color:#444;line-height:1.5}
+.quote.g{border-color:#23c197;background:#f3fbf8}
+.quote.r{border-color:#ef5878;background:#fdf4f6}
+.quote .meta{color:#a0a4b0;font-size:10px;margin-top:7px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- sidebar -->
+  <aside class="side">
+    <div class="logo"><span class="dot"></span>ReviewLens</div>
+    <nav class="nav">
+      <a class="on" href="#"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>대시보드</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>리뷰 분석</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4 8 4 8-4zM4 7v10l8 4 8-4V7"/></svg>상품 인사이트</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>캠페인 성과</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>이슈 모니터링</a>
+      <a href="#"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"/></svg>리포트</a>
+    </nav>
+    <div class="grow"></div>
+    <div class="conn">데이터 연동 현황<br><b>4 / 4 연결됨</b><div class="ln"><i></i></div></div>
+    <div class="setting"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5a7 7 0 0 0 .1-1z"/></svg>설정</div>
+  </aside>
+
+  <!-- main -->
+  <div class="main">
+    <header class="top">
+      <h1>마케팅 대시보드</h1>
+      <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#aab" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="검색어를 입력하세요"></div>
+      <div class="right">
+        <div class="pill">📅 2025.05.10 ~ 2025.05.16 ▾</div>
+        <div class="pill">⚙ 필터</div>
+        <button class="export">⤓ 리포트 내보내기</button>
+        <div class="bell"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="b">3</span></div>
+        <div class="me"><span class="av"></span><span><small>마케팅팀</small><b>김서연 ▾</b></span></div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- KPIs -->
+      <div class="kpis">
+        <div class="kpi k1"><div><div class="lab">총 리뷰 수 ⓘ</div><div class="val">18,240</div><div class="chg">전주 대비 <span class="up">▲ 12.6%</span></div></div><div class="ic">💬</div></div>
+        <div class="kpi k2"><div><div class="lab">긍정 비율 ⓘ</div><div class="val">76.4%</div><div class="chg">전주 대비 <span class="up" style="color:#23c197">▲ 4.8%</span></div></div><div class="ic">☺</div></div>
+        <div class="kpi k3"><div><div class="lab">전환 기여 상품 ⓘ</div><div class="val">128</div><div class="chg">전주 대비 <span class="up" style="color:#7c6cf0">▲ 9.3%</span></div></div><div class="ic">🛍</div></div>
+        <div class="kpi k4"><div><div class="lab">주의 이슈 ⓘ</div><div class="val">23</div><div class="chg">전주 대비 <span class="up">▲ 15.0%</span></div></div><div class="ic">⚠</div></div>
+      </div>
+
+      <!-- row 2 -->
+      <div class="row r2">
+        <!-- 감성 추이 -->
+        <div class="panel">
+          <div class="head"><h3>리뷰 감성 추이 <span class="q">ⓘ</span></h3><span class="sel">일간 ▾</span></div>
+          <div class="legend"><span><i style="background:#23c197"></i>긍정</span><span><i style="background:#cdd2db"></i>중립</span><span><i style="background:#ef5878"></i>부정</span></div>
+          <svg viewBox="0 0 720 230" width="100%">
+            <!-- gridlines + y labels -->
+            <g stroke="#eef0f3"><line x1="55" y1="20" x2="710" y2="20"/><line x1="55" y1="56" x2="710" y2="56"/><line x1="55" y1="92" x2="710" y2="92"/><line x1="55" y1="128" x2="710" y2="128"/><line x1="55" y1="164" x2="710" y2="164"/><line x1="55" y1="200" x2="710" y2="200"/></g>
+            <g fill="#b7bcc6" font-size="10"><text x="40" y="24">5K</text><text x="40" y="60">4K</text><text x="40" y="96">3K</text><text x="40" y="132">2K</text><text x="40" y="168">1K</text><text x="46" y="204">0</text></g>
+            <!-- 긍정 area + line -->
+            <path d="M60 92 L165 85 L270 67 L375 78 L480 63 L585 74 L690 56 L690 200 L60 200 Z" fill="#23c197" opacity="0.12"/>
+            <polyline points="60,92 165,85 270,67 375,78 480,63 585,74 690,56" fill="none" stroke="#23c197" stroke-width="2.5"/>
+            <!-- 중립 -->
+            <polyline points="60,153 165,155 270,153 375,144 480,150 585,148 690,148" fill="none" stroke="#cdd2db" stroke-width="2.5"/>
+            <!-- 부정 -->
+            <polyline points="60,189 165,187 270,189 375,186 480,187 585,189 690,189" fill="none" stroke="#ef5878" stroke-width="2.5"/>
+            <g fill="#23c197"><circle cx="60" cy="92" r="3"/><circle cx="165" cy="85" r="3"/><circle cx="270" cy="67" r="3"/><circle cx="375" cy="78" r="3"/><circle cx="480" cy="63" r="3"/><circle cx="585" cy="74" r="3"/><circle cx="690" cy="56" r="3"/></g>
+            <g fill="#9aa0ac" font-size="10" text-anchor="middle"><text x="60" y="220">05.10(토)</text><text x="165" y="220">05.11(일)</text><text x="270" y="220">05.12(월)</text><text x="375" y="220">05.13(화)</text><text x="480" y="220">05.14(수)</text><text x="585" y="220">05.15(목)</text><text x="690" y="220">05.16(금)</text></g>
+          </svg>
+        </div>
+
+        <!-- 카테고리별 반응 -->
+        <div class="panel">
+          <div class="head"><h3>카테고리별 반응 <span class="q">ⓘ</span></h3><span class="sel">긍정 비율 ▾</span></div>
+          <div style="margin-top:14px">
+            <div class="catbar"><span class="nm">생활가전</span><span class="tr"><i style="width:82%;background:#23c197"></i></span><span class="pc">82.1%</span></div>
+            <div class="catbar"><span class="nm">패션</span><span class="tr"><i style="width:74%;background:#4a90e2"></i></span><span class="pc">74.3%</span></div>
+            <div class="catbar"><span class="nm">뷰티</span><span class="tr"><i style="width:71%;background:#7c6cf0"></i></span><span class="pc">71.2%</span></div>
+            <div class="catbar"><span class="nm">식품</span><span class="tr"><i style="width:65%;background:#f5a623"></i></span><span class="pc">64.7%</span></div>
+          </div>
+          <div class="axis"><span>0%</span><span>20%</span><span>40%</span><span>60%</span><span>80%</span><span>100%</span></div>
+        </div>
+
+        <!-- 속성별 평가 -->
+        <div class="panel">
+          <h3>속성별 평가 <span class="q">ⓘ</span></h3>
+          <div class="legend"><span><i style="background:#23c197"></i>긍정</span><span><i style="background:#cdd2db"></i>중립</span><span><i style="background:#ef5878"></i>부정</span></div>
+          <div class="attr"><div class="nm">품질</div><div class="st"><span style="width:72%;background:#23c197">72%</span><span style="width:20%;background:#cdd2db;color:#667">20%</span><span style="width:8%;background:#ef5878">8%</span></div></div>
+          <div class="attr"><div class="nm">가격</div><div class="st"><span style="width:60%;background:#23c197">60%</span><span style="width:25%;background:#cdd2db;color:#667">25%</span><span style="width:15%;background:#ef5878">15%</span></div></div>
+          <div class="attr"><div class="nm">배송</div><div class="st"><span style="width:78%;background:#23c197">78%</span><span style="width:14%;background:#cdd2db;color:#667">14%</span><span style="width:8%;background:#ef5878">8%</span></div></div>
+          <div class="attr"><div class="nm">포장</div><div class="st"><span style="width:70%;background:#23c197">70%</span><span style="width:20%;background:#cdd2db;color:#667">20%</span><span style="width:10%;background:#ef5878">10%</span></div></div>
+          <div class="attr"><div class="nm">고객응대</div><div class="st"><span style="width:68%;background:#23c197">68%</span><span style="width:19%;background:#cdd2db;color:#667">19%</span><span style="width:13%;background:#ef5878">13%</span></div></div>
+        </div>
+      </div>
+
+      <!-- row 3 -->
+      <div class="row r3">
+        <!-- 핵심 키워드 -->
+        <div class="panel">
+          <h3>핵심 키워드 <span class="q">ⓘ</span></h3>
+          <div class="kw">
+            <div class="t-g"><small>배송</small>3,842</div><div class="t-b"><small>포장</small>2,901</div><div class="t-p"><small>재구매</small>2,374</div>
+            <div class="t-g"><small>만족</small>2,231</div><div class="t-b"><small>품질</small>1,987</div><div class="t-o"><small>가격</small>1,845</div>
+            <div class="t-r" style="grid-column:span 1"><small>불만</small>1,256</div>
+          </div>
+        </div>
+
+        <!-- 우선 관리 상품 -->
+        <div class="panel">
+          <h3>우선 관리 상품 <span class="q">ⓘ</span></h3>
+          <table>
+            <tr><th>상품명</th><th>카테고리</th><th>주요 이슈</th><th>감성 변화</th><th>상태</th></tr>
+            <tr><td><span class="thumb"></span>무선 청소기 X10</td><td>생활가전</td><td>흡입력, 배터리 지속시간</td><td><svg width="48" height="16"><polyline points="0,8 8,5 16,11 24,4 32,12 40,6 48,10" fill="none" stroke="#ef5878" stroke-width="1.5"/></svg></td><td><span class="badge b-red">조치 필요</span></td></tr>
+            <tr><td><span class="thumb"></span>데일리 에센스 세트</td><td>뷰티</td><td>피부 트러블, 용기 누수</td><td><svg width="48" height="16"><polyline points="0,7 8,9 16,6 24,10 32,7 40,9 48,8" fill="none" stroke="#23c197" stroke-width="1.5"/></svg></td><td><span class="badge b-yel">관찰</span></td></tr>
+            <tr><td><span class="thumb"></span>프리미엄 면 티셔츠</td><td>패션</td><td>사이즈 작음, 세탁 후 수축</td><td><svg width="48" height="16"><polyline points="0,6 8,10 16,5 24,11 32,6 40,12 48,8" fill="none" stroke="#ef5878" stroke-width="1.5"/></svg></td><td><span class="badge b-red">조치 필요</span></td></tr>
+            <tr><td><span class="thumb"></span>유기농 견과 믹스</td><td>식품</td><td>신선도, 포장 불량</td><td><svg width="48" height="16"><polyline points="0,9 8,7 16,8 24,6 32,8 40,7 48,7" fill="none" stroke="#23c197" stroke-width="1.5"/></svg></td><td><span class="badge b-grn">안정</span></td></tr>
+          </table>
+        </div>
+
+        <!-- 캠페인 성과 -->
+        <div class="panel">
+          <h3>캠페인 성과 요약 <span class="q">ⓘ</span></h3>
+          <div class="camp">
+            <svg width="120" height="120" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#eef0f3" stroke-width="14"/>
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#7c6cf0" stroke-width="14" stroke-dasharray="159 289" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#23c197" stroke-width="14" stroke-dasharray="87 289" stroke-dashoffset="-159" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+              <circle cx="60" cy="60" r="46" fill="none" stroke="#f5a623" stroke-width="14" stroke-dasharray="43 289" stroke-dashoffset="-246" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+              <text x="60" y="55" text-anchor="middle" font-size="10" fill="#9aa0ac">총 전환 기여</text>
+              <text x="60" y="73" text-anchor="middle" font-size="18" font-weight="800" fill="#333">5,842</text>
+            </svg>
+            <div class="met">
+              <div class="m"><div class="lab">클릭률(CTR)</div><div class="v">2.41% <span class="up">▲ 0.38%p</span></div></div>
+              <div class="m"><div class="lab">재방문율</div><div class="v">18.7% <span class="up">▲ 2.6%p</span></div></div>
+              <div class="m"><div class="lab">추천 전환율</div><div class="v">5.8% <span class="up">▲ 1.1%p</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 고객 리뷰 인사이트 -->
+        <div class="panel">
+          <h3>고객 리뷰 인사이트 <span class="q">ⓘ</span></h3>
+          <div class="quote g">“배송이 정말 빨랐고, 포장도 꼼꼼해서 기분 좋게 받았어요. 재구매 의사 있습니다!”<div class="meta">— 5/15 · 30대 여성 · 생활가전</div></div>
+          <div class="quote r">“사이즈가 생각보다 작고 세탁 후 줄어들었어요. 교환 과정도 번거로워서 아쉬웠습니다.”<div class="meta">— 5/14 · 20대 남성 · 패션</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# ReviewLens — phase 1 deps (CPU)
+torch            # CPU wheel: pip install torch --index-url https://download.pytorch.org/whl/cpu
+transformers
+pandas
+# 이후 단계: sentence-transformers, faiss-cpu, lightfm, fastapi, ollama
