@@ -1,5 +1,16 @@
-# ReviewLens — phase 1 deps (CPU)
+# ReviewLens deps (CPU)
+
+# --- phase 1: ABSA / 챗봇 / 웹 ---
 torch            # CPU wheel: pip install torch --index-url https://download.pytorch.org/whl/cpu
 transformers
 pandas
-# 이후 단계: sentence-transformers, faiss-cpu, lightfm, fastapi, ollama
+fastapi
+uvicorn
+# LLM ABSA·챗봇은 Ollama(qwen2.5:3b) 로컬 서버 사용 (별도 설치)
+
+# --- phase 2: 추천 협업필터링 ---
+implicit         # ALS CF (CPU 네이티브). LightFM은 py3.12+setuptools에서 빌드 불가라 대체
+scipy            # sparse 상호작용 행렬
+
+# --- 이후 단계 ---
+# sentence-transformers, faiss-cpu  # 챗봇 의미검색(ko-sroberta + FAISS)
