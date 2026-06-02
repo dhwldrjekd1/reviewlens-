@@ -24,10 +24,25 @@ def rule_preds():
 def llm_preds(d):  # 이미 적재된 LLM 결과 재사용
     return {(rid, a, s) for rid, a, s in d.execute("select review_id, aspect, sentiment from aspect_sentiment")}
 
+def clf_preds():  # 규칙 속성 + 학습된 감성 분류기 (속성 추출은 규칙과 동일)
+    import absa_clf
+    rows = load("reviews.csv", ["review_id", "text"])
+    return {(int(rid), a, s) for rid, t in rows for a, s, _, _ in absa_clf.analyze(t)}
+
 if __name__ == "__main__":
+    import sys
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     g = gold()
     d = db.get_db()
     print(f"정답(gold): {len(g)}개\n")
-    for name, pred in [("규칙+KoELECTRA", rule_preds()), ("LLM qwen2.5:3b", llm_preds(d))]:
+    for name, fn in [("규칙+KoELECTRA", rule_preds),
+                     ("LLM qwen2.5:3b", lambda: llm_preds(d)),
+                     ("규칙+학습분류기", clf_preds)]:
+        try:
+            pred = fn()
+        except Exception as e:
+            print(f"{name:<16} 건너뜀: {e}")
+            continue
         p, r, f = prf(pred, g)
         print(f"{name:<16} 예측 {len(pred):>2}개  정밀도 {p:.2f}  재현율 {r:.2f}  F1 {f:.2f}")

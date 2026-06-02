@@ -1,5 +1,5 @@
-import csv, os
-import db, absa_llm  # 부트스트랩(KoELECTRA) 쓰려면 run(sentiment)로 호출
+import csv, os, sys
+import db, absa_llm  # 기본 LLM ABSA. 다른 분석기는 CLI 인자로 선택
 
 items = {
     "P1": ("아쿠아 무선이어폰", "전자"),
@@ -36,4 +36,13 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
         print(f"{name:<16}{aspect:<6}{pos:>4}{neg:>4}")
 
 if __name__ == "__main__":
-    run()
+    # python pipeline.py [llm|clf|rule]  (기본 llm)
+    mode = sys.argv[1] if len(sys.argv) > 1 else "llm"
+    if mode == "clf":
+        import absa_clf as analyzer
+    elif mode == "rule":
+        import sentiment as analyzer
+    else:
+        analyzer = absa_llm
+    print(f"[analyzer: {mode}]")
+    run(analyzer)

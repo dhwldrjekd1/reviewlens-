@@ -31,10 +31,11 @@
 
 리뷰 한 건이 들어오면 속성별(`배송·품질·가격·포장·디자인·CS`)로 감성을 분해해 SQLite에 적재합니다. 이 저장소가 추천과 챗봇의 공통 근거가 됩니다.
 
-### 1. ABSA — 속성별 감성 분석 (2-way)
-- **규칙 + KoELECTRA**: 규칙 기반 부트스트랩으로 빠르게 라벨 확보 (재현율↑)
-- **LLM (qwen2.5:3b)**: Ollama에 JSON 스키마를 강제해 `aspect / sentiment / evidence`를 구조화 추출 (정밀도↑)
-- 두 분석기를 같은 인터페이스로 두고 **gold 라벨로 F1 비교**
+### 1. ABSA — 속성별 감성 분석 (3-way, 교체 가능)
+- **규칙 + KoELECTRA**: 키워드 속성 추출 + 절 분리 + KoELECTRA 감성 (부트스트랩)
+- **LLM (qwen2.5:3b)**: Ollama에 JSON 스키마를 강제해 `aspect / sentiment / evidence`를 구조화 추출
+- **규칙 + 학습분류기**: 속성 추출은 규칙 공유, 감성만 도메인 학습 분류기(네이버쇼핑)로 교체 → **F1 0.92로 최고**
+- 세 분석기를 같은 인터페이스(`analyze(text)`)로 두고 **gold 라벨로 F1 비교** (속성 추출 규칙은 `aspect_rules.py`로 공유)
 
 ### 2. 추천 — 협업필터링 + 감성 하이브리드
 - **협업필터링(implicit ALS)**: user-item 상호작용에서 잠재요인을 학습해 개인화 추천
@@ -61,10 +62,11 @@
 | 분석기 | 정밀도 | 재현율 | F1 |
 |---|---|---|---|
 | 규칙 + KoELECTRA | 0.86 | 0.82 | 0.84 |
-| LLM (qwen2.5:3b) | **1.00** | 0.74 | **0.85** |
+| LLM (qwen2.5:3b) | 1.00 | 0.74 | 0.85 |
+| **규칙 + 학습분류기(네이버쇼핑)** | **0.95** | **0.90** | **0.92** |
 
-- 규칙은 재현율↑/정밀도↓, LLM은 정밀도↑/재현율↓ — **정밀도-재현율 트레이드오프**가 뚜렷하고 F1은 거의 동률.
-- 결론: 두 방식 모두 천장이 있어 **하이브리드 또는 ABSA 파인튜닝**이 다음 단계.
+- 규칙은 재현율↑/정밀도↓, LLM은 정밀도↑/재현율↓ — **정밀도-재현율 트레이드오프**, F1 거의 동률.
+- **학습분류기 통합 효과**: 속성 추출은 규칙과 동일(예측 37개로 같음)하게 두고 **감성 판정만 도메인 학습 분류기로 교체**하니 F1 0.84→**0.92**. 범용 KoELECTRA(NSMC)보다 쇼핑 도메인 데이터로 학습한 분류기가 감성 정확도에서 앞섬을 확인.
 - 주의: gold 39개·단일 라벨러 기준이라 지표는 *방향성* 수준. 규모를 키우면 재측정 필요.
 
 ---
@@ -98,7 +100,8 @@ gold 39개는 *평가용*이라 학습엔 부족 → **네이버쇼핑 리뷰 20
 
 - 균형 표본 16k(긍/부정 8k씩), 테스트 3.2k. baseline 0.5 대비 **F1 0.914**.
 - 우리 리뷰(쇼핑 도메인)에 적용해도 별점과 일치(별점5→긍정 0.92, 별점1→부정 0.00) — **도메인 전이 확인**.
-- 한계: 이 데이터는 **문장 단위 감성**이라 *속성 구분은 학습 안 됨*. 즉 ABSA의 '감성 분류' 정확도를 높이는 단계이고, **속성 추출은 규칙/LLM이 담당**. 진짜 속성별 파인튜닝은 속성 라벨 데이터(CARBD-Ko 등)가 필요 — 다음 단계.
+- **ABSA 파이프라인에 통합**: 이 분류기를 규칙 속성 추출과 결합한 분석기(`absa_clf.py`)가 gold F1 **0.92** 달성(위 ABSA 표) — 학습이 실제 성능 향상으로 이어짐을 확인.
+- 한계: 이 데이터는 **문장 단위 감성**이라 *속성 구분은 학습 안 됨*. 즉 '감성 분류'만 개선하고 **속성 추출은 규칙이 담당**. 진짜 속성별 파인튜닝은 속성 라벨 데이터(CARBD-Ko 등)가 필요 — 다음 단계.
 
 ---
 
@@ -122,8 +125,8 @@ pip install -r requirements.txt          # torch는 CPU 휠
 # LLM ABSA/챗봇용: Ollama 설치 후
 ollama pull qwen2.5:3b
 
-python pipeline.py        # 리뷰 → 감성 저장소 (기본 LLM, sentiment 모드면 규칙)
-python eval.py            # 규칙 vs LLM F1
+python pipeline.py [llm|clf|rule]  # 리뷰 → 감성 저장소 (분석기 선택, 기본 llm)
+python eval.py            # ABSA 3-way F1 비교 (규칙/LLM/학습분류기)
 python recommend.py       # 취향별 설명가능 추천 (phase 1 스코어러)
 python recommender.py     # 협업필터링(ALS)+감성 블렌딩 추천 + 시간분할 평가
 python retriever.py       # 키워드 vs 의미검색(ko-sroberta+FAISS) 비교 데모
@@ -139,8 +142,10 @@ python -m uvicorn app:app # 웹 UI (localhost:8000)
 ```
 reviewlens/
 ├─ db.py           SQLite 스키마 + 집계 (감성 저장소)
+├─ aspect_rules.py 속성 사전 + 절 분리 (분석기 공유)
 ├─ sentiment.py    규칙 + KoELECTRA ABSA (부트스트랩)
 ├─ absa_llm.py     LLM(Ollama) ABSA, JSON 스키마 강제
+├─ absa_clf.py     규칙 속성 + 학습 분류기 감성 ABSA (phase 2)
 ├─ pipeline.py     리뷰 → 분석 → 적재
 ├─ recommend.py    감성 기반 설명가능 추천 (phase 1 스코어러)
 ├─ recommender.py  협업필터링(ALS)+감성 블렌딩 추천 + 시뮬레이터·평가 (phase 2)
@@ -160,4 +165,4 @@ reviewlens/
 
 - **추천 (구현됨, Phase 2)**: 협업필터링(implicit ALS) + 감성 블렌딩 + 콜드스타트 폴백까지 구현·평가 완료. 다음은 **실데이터(Amazon-Reviews-2023)** 로더 연결로 합성 시뮬레이터를 대체.
 - **챗봇 의미검색 (구현됨, Phase 2)**: 키워드 → **ko-sroberta + FAISS** 의미검색으로 교체 완료(LLM 없이도 동작하는 fallback 포함). 다음은 규모 확장 시 IVF/HNSW 인덱스, 임베딩 캐시.
-- **ABSA 감성 분류기 (구현됨, Phase 2)**: 네이버쇼핑 200k로 감성 분류기를 CPU linear probing 학습(F1 0.914). 다음은 **속성 라벨 데이터(CARBD-Ko 등)** 로 *속성별* 파인튜닝, 그리고 규모 키울 때 **Colab GPU 전체 파인튜닝**(학습=클라우드, 추론=로컬 CPU).
+- **ABSA 감성 분류기 (구현·통합됨, Phase 2)**: 네이버쇼핑 200k로 CPU linear probing 학습(F1 0.914) → 규칙 속성 추출과 결합해 ABSA에 통합(gold F1 0.92, 기존 0.84 대비↑). 다음은 **속성 라벨 데이터(CARBD-Ko 등)** 로 *속성별* 파인튜닝, 규모 키울 때 **Colab GPU 전체 파인튜닝**.
