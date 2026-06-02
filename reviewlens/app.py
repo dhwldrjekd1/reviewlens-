@@ -15,6 +15,15 @@ def home():
 def summary():
     return [{"name": n, "aspect": a, "pos": p, "neg": g} for n, a, p, g in db.summary(d)]
 
+@app.get("/api/stats")
+def stats():  # 대시보드 KPI용 실데이터 집계
+    n_rev = d.execute("select count(*) from review").fetchone()[0]
+    n_item = d.execute("select count(*) from item").fetchone()[0]
+    pos, tot = d.execute("select sum(sentiment='positive'), count(*) from aspect_sentiment").fetchone()
+    neg = d.execute("select count(*) from aspect_sentiment where sentiment='negative'").fetchone()[0]
+    return {"reviews": n_rev, "items": n_item,
+            "pos_ratio": round(100 * pos / tot, 1) if tot else 0, "neg": neg}
+
 @app.get("/api/recommend")
 def rec(prefs: str = "배송,가격"):
     pr = {a: 1 for a in prefs.split(",") if a}
