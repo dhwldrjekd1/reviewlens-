@@ -112,7 +112,27 @@ td{padding:10px 8px;border-bottom:1px solid #f4f5f7}
 .msg .ev{margin-top:7px;padding-top:7px;border-top:1px dashed #d9dce3;color:#8a90a0;font-size:10px;line-height:1.5}
 .chatIn{display:flex;gap:8px}
 .chatIn input{flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:12px;outline:0}
+.chatIn input:focus{border-color:#f5b6c2}
+.btn:disabled{opacity:.5;cursor:default}
 .hint{font-size:10px;color:#b0b5c0;margin-top:6px}
+
+/* loading / empty states */
+.loading,.empty{color:#b0b5c0;font-size:12px;padding:16px 4px;text-align:center}
+.loading::before{content:"";display:inline-block;width:11px;height:11px;margin-right:7px;border:2px solid #dfe2e8;border-top-color:#f0617e;border-radius:50%;vertical-align:-1px;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* responsive */
+@media (max-width:1180px){
+  .r2,.r-live{grid-template-columns:1fr 1fr}
+  .r2 .panel:first-child,.r-live .panel:last-child{grid-column:span 2}
+}
+@media (max-width:720px){
+  .side{display:none}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .r2,.r-live{grid-template-columns:1fr}
+  .row .panel{grid-column:auto !important}
+  .top{flex-wrap:wrap}
+}
 </style>
 </head>
 <body>
@@ -179,7 +199,7 @@ td{padding:10px 8px;border-bottom:1px solid #f4f5f7}
         <div class="panel">
           <div class="head"><h3>속성별 평가</h3><span class="live">● LIVE</span></div>
           <div class="legend"><span><i style="background:#23c197"></i>긍정</span><span><i style="background:#ef5878"></i>부정</span></div>
-          <div id="aspectBars"></div>
+          <div id="aspectBars"><div class="loading">불러오는 중</div></div>
         </div>
 
         <!-- 상품별 감성 요약 (실데이터 /api/summary) -->
@@ -187,7 +207,7 @@ td{padding:10px 8px;border-bottom:1px solid #f4f5f7}
           <div class="head"><h3>상품별 감성 요약</h3><span class="live">● LIVE</span></div>
           <table>
             <tr><th>상품</th><th>긍정률</th><th>약점 속성</th><th>상태</th></tr>
-            <tbody id="prodRows"></tbody>
+            <tbody id="prodRows"><tr><td colspan="4"><div class="loading">불러오는 중</div></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -199,17 +219,19 @@ td{padding:10px 8px;border-bottom:1px solid #f4f5f7}
           <div class="head"><h3>설명가능 추천</h3><span class="live">● LIVE</span></div>
           <div style="font-size:11px;color:#8a90a0;margin-bottom:8px">중시하는 속성을 고르면 감성 점수 기반으로 추천 (콜드스타트)</div>
           <div class="chips" id="prefChips"></div>
-          <button class="btn" onclick="recommend()">추천 받기</button>
+          <button class="btn" id="recBtn" onclick="recommend()">추천 받기</button>
           <div id="recList" style="margin-top:12px"></div>
         </div>
 
         <!-- 근거기반 챗봇 (실데이터 /api/chat) -->
         <div class="panel" style="grid-column:span 2">
           <div class="head"><h3>근거기반 챗봇 <span class="q">· 의미검색 RAG</span></h3><span class="live">● LIVE</span></div>
-          <div class="chatBox" id="chatBox"></div>
+          <div class="chatBox" id="chatBox">
+            <div class="msg a">안녕하세요! 리뷰 기반으로 답해드려요. 예) <b>이어폰 소리 어때?</b>, <b>배송 빠른 거 추천해줘</b></div>
+          </div>
           <div class="chatIn">
             <input id="chatQ" placeholder="예: 이어폰 소리 어때? / 배송 빠른 거 추천해줘" onkeydown="if(event.key==='Enter')ask()">
-            <button class="btn" onclick="ask()">전송</button>
+            <button class="btn" id="chatBtn" onclick="ask()">전송</button>
           </div>
           <div class="hint">ko-sroberta + FAISS로 근거 리뷰를 찾고 로컬 LLM(qwen2.5:3b)이 답변 · LLM 미가동 시 근거만 표시</div>
         </div>
@@ -234,7 +256,19 @@ async function loadSummary() {
     kNeg.textContent = s.neg;
   } catch (e) {}
 
-  const sum = await getJSON("/api/summary");
+  let sum;
+  try {
+    sum = await getJSON("/api/summary");
+  } catch (e) {
+    aspectBars.innerHTML = '<div class="empty">데이터를 불러오지 못했어요.</div>';
+    prodRows.innerHTML = '<tr><td colspan="4"><div class="empty">데이터를 불러오지 못했어요.</div></td></tr>';
+    return;
+  }
+  if (!sum.length) {
+    aspectBars.innerHTML = '<div class="empty">아직 분석된 리뷰가 없어요.</div>';
+    prodRows.innerHTML = '<tr><td colspan="4"><div class="empty">데이터 없음 — pipeline.py 실행 필요</div></td></tr>';
+    return;
+  }
   // 속성별 집계
   const agg = {};
   sum.forEach(r => { const a = agg[r.aspect] || (agg[r.aspect] = {pos:0, neg:0}); a.pos += r.pos; a.neg += r.neg; });
@@ -265,21 +299,29 @@ document.querySelector('.chip[data-a="가격"]').classList.add("on");
 async function recommend() {
   const prefs = [...document.querySelectorAll(".chip.on")].map(c => c.dataset.a);
   const q = prefs.length ? prefs.join(",") : "품질";
-  const recs = await getJSON("/api/recommend?prefs=" + encodeURIComponent(q));
-  recList.innerHTML = recs.map(r => {
-    const why = r.why.map(w => `${w.aspect} ${w.pos}%`).join(" · ") || "근거 부족";
-    return `<div class="recItem"><b>${esc(r.name)}</b><span class="score">score ${r.score}</span>
-      <div class="why">${esc(why)}</div></div>`;
-  }).join("");
+  recBtn.disabled = true;
+  recList.innerHTML = '<div class="loading">추천 계산 중</div>';
+  try {
+    const recs = await getJSON("/api/recommend?prefs=" + encodeURIComponent(q));
+    recList.innerHTML = recs.length ? recs.map(r => {
+      const why = r.why.map(w => `${w.aspect} ${w.pos}%`).join(" · ") || "근거 부족";
+      return `<div class="recItem"><b>${esc(r.name)}</b><span class="score">score ${r.score}</span>
+        <div class="why">${esc(why)}</div></div>`;
+    }).join("") : '<div class="empty">조건에 맞는 추천이 없어요.</div>';
+  } catch (e) {
+    recList.innerHTML = '<div class="empty">추천을 불러오지 못했어요.</div>';
+  }
+  recBtn.disabled = false;
 }
 
 async function ask() {
   const q = chatQ.value.trim();
   if (!q) return;
   chatQ.value = "";
+  chatBtn.disabled = true; chatQ.disabled = true;
   chatBox.innerHTML += `<div class="msg u">${esc(q)}</div>`;
   const pending = document.createElement("div");
-  pending.className = "msg a"; pending.textContent = "… 답변 생성 중";
+  pending.className = "msg a loading"; pending.textContent = "답변 생성 중";
   chatBox.appendChild(pending);
   chatBox.scrollTop = chatBox.scrollHeight;
   try {
@@ -290,8 +332,11 @@ async function ask() {
     const ev = (res.evidence || "").split("\n").map(esc).join("<br>");
     chatBox.innerHTML += `<div class="msg a">${esc(res.answer)}${ev ? `<div class="ev">${ev}</div>` : ""}</div>`;
   } catch (e) {
+    pending.classList.remove("loading");
     pending.textContent = "오류: 응답을 받지 못했어요.";
   }
+  chatBtn.disabled = false; chatQ.disabled = false;
+  chatQ.focus();
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
