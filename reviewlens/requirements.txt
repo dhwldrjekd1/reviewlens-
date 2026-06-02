@@ -12,5 +12,10 @@ uvicorn
 implicit         # ALS CF (CPU 네이티브). LightFM은 py3.12+setuptools에서 빌드 불가라 대체
 scipy            # sparse 상호작용 행렬
 
-# --- 이후 단계 ---
-# sentence-transformers, faiss-cpu  # 챗봇 의미검색(ko-sroberta + FAISS)
+# --- phase 2: 챗봇 의미검색 (RAG retriever) ---
+sentence-transformers   # ko-sroberta(jhgan/ko-sroberta-multitask) 임베딩
+faiss-cpu               # 근거 리뷰 의미검색 인덱스
+
+# --- phase 2: 감성 분류기 학습 (linear probing, CPU) ---
+scikit-learn            # 로지스틱 회귀 헤드 + 평가
+joblib                  # 학습된 분류기 직렬화

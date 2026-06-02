@@ -15,8 +15,8 @@
 | 항목 | 내용 |
 |---|---|
 | 한 줄 소개 | 리뷰 감성을 추천·챗봇의 근거로 재사용하는 통합 리뷰 분석 플랫폼 |
-| 핵심 기술 | ABSA(속성별 감성 분석), 협업필터링+감성 하이브리드 추천, RAG형 근거기반 챗봇 |
-| 스택 | Python, FastAPI, SQLite, KoELECTRA, Ollama(qwen2.5:3b), implicit(ALS) |
+| 핵심 기술 | ABSA(속성별 감성 분석), 협업필터링+감성 하이브리드 추천, 의미검색 RAG 챗봇 |
+| 스택 | Python, FastAPI, SQLite, KoELECTRA, Ollama(qwen2.5:3b), implicit(ALS), ko-sroberta+FAISS |
 | 실행 환경 | CPU 전용 (torch CPU 휠 + 로컬 LLM) |
 | 성과 | ABSA F1 0.84~0.85, 추천 블렌딩 Recall@10 0.31(>popularity 0.19), 정량 평가 체계 구축 |
 
@@ -42,9 +42,17 @@
 - **콜드스타트 fallback**: 상호작용이 없는 신규 유저는 감성 스코어러로 폴백 → `"배송 만족도 92%, 가격 만족도 80%"` 식 설명과 함께 추천
 - **시간 기반 분할** 평가로 popularity 베이스라인과 비교 (랜덤 분할의 미래→과거 누수 회피)
 
-### 3. 근거기반 챗봇
-- 질문에 답할 때 실제 리뷰를 근거로 검색해 LLM이 답변
-- "왜 그렇게 답했는지"를 근거 리뷰와 함께 반환
+### 3. 근거기반 챗봇 (의미검색 RAG)
+- **의미검색**: 리뷰 원문을 ko-sroberta로 임베딩해 FAISS 인덱스로 만들고, 질문도 같은 공간에 임베딩해 **의미가 가까운 근거 리뷰**를 검색 (키워드 불일치도 검색)
+- 검색된 리뷰(+속성 감성 라벨)를 프롬프트 근거로 넣어 LLM이 답변 → 근거 함께 반환
+- **graceful fallback**: 의미검색은 LLM 없이도 동작 → Ollama 미가동 시에도 근거 리뷰를 반환
+
+| 질문 (정답 리뷰와 단어 안 겹침) | 키워드 검색 top1 | 의미검색 top1 |
+|---|---|---|
+| "이어폰 **소리** 괜찮아?" | 텀블러 색상·가성비 ❌ | 스피커 "소리는 좋은데…" ✅ |
+| "물건 **늦게** 오나요?" | 러닝화 교환응대 ❌ | 백팩 "배송이 너무 느렸고…" ✅ |
+
+→ 키워드는 글자가 겹쳐야만 찾지만, 의미검색은 표현이 달라도 같은 의미의 리뷰를 찾음.
 
 ---
 
@@ -79,12 +87,29 @@
 
 ---
 
+## 측정 결과 (감성 분류기 학습, linear probing · `sentiment_finetune.py`)
+
+gold 39개는 *평가용*이라 학습엔 부족 → **네이버쇼핑 리뷰 200k**(도메인 일치, 평점 1~5 → 긍/부정)로 감성 분류기를 학습. CPU 제약상 전체 파인튜닝 대신 **linear probing**(ko-sroberta 인코더 동결 + 임베딩 캐시 → 로지스틱 회귀 헤드만 학습)으로 수 분 내 완료.
+
+| 방법 | 정확도 | 정밀도 | 재현율 | F1 |
+|---|---|---|---|---|
+| 다수클래스 baseline | 0.500 | – | – | – |
+| **linear probing (헤드 학습)** | **0.914** | 0.915 | 0.912 | **0.914** |
+
+- 균형 표본 16k(긍/부정 8k씩), 테스트 3.2k. baseline 0.5 대비 **F1 0.914**.
+- 우리 리뷰(쇼핑 도메인)에 적용해도 별점과 일치(별점5→긍정 0.92, 별점1→부정 0.00) — **도메인 전이 확인**.
+- 한계: 이 데이터는 **문장 단위 감성**이라 *속성 구분은 학습 안 됨*. 즉 ABSA의 '감성 분류' 정확도를 높이는 단계이고, **속성 추출은 규칙/LLM이 담당**. 진짜 속성별 파인튜닝은 속성 라벨 데이터(CARBD-Ko 등)가 필요 — 다음 단계.
+
+---
+
 ## 기술적 의사결정 (포인트)
 
 - **CPU 전용 제약을 설계 원칙으로**: 학습은 클라우드(Colab GPU), 추론은 로컬 CPU로 분리.
 - **LLM 출력 신뢰성**: Ollama `format` 스키마로 JSON 구조를 강제하고 `temperature=0`으로 결정적 추출. `neutral`은 노이즈로 보고 버려 정밀도 확보.
 - **콜드스타트 대응**: 상호작용이 없는 신규 유저는 협업필터링이 불가능 → 감성 스코어러로 폴백(없는 속성은 0.5 중립 처리)해 첫 추천부터 동작.
 - **죽은 의존성 회피(LightFM→implicit)**: 당초 LightFM 하이브리드를 계획했으나 유지보수가 끊겨 Python 3.12 + 최신 setuptools/numpy 2.x에서 빌드 불가. 유지보수되는 `implicit`(ALS)로 CF 백본을 옮기고, LightFM의 *아이템 사이드피처(감성)* 역할은 감성 스코어러 블렌딩으로 대체.
+- **RAG 견고성**: 챗봇은 검색(ko-sroberta+FAISS)과 생성(LLM)을 분리 — 의미검색은 LLM 없이도 동작하므로, Ollama가 꺼져 있어도 500 대신 근거 리뷰를 반환하도록 fallback 설계.
+- **CPU에서 학습하기(linear probing)**: GPU 없이 감성 분류기를 학습하려고 전체 파인튜닝 대신 인코더를 동결하고 임베딩을 캐시한 뒤 가벼운 헤드만 학습. forward 한 번이면 끝나 CPU로도 수 분. baseline 0.5 → F1 0.914로 실효성 확인.
 - **평가 우선**: 기능보다 먼저 평가 파이프라인을 구축 — ABSA는 gold F1, 추천은 시간 분할 Recall@K/NDCG@K로 베이스라인 대비 정량 비교.
 
 ---
@@ -101,7 +126,9 @@ python pipeline.py        # 리뷰 → 감성 저장소 (기본 LLM, sentiment �
 python eval.py            # 규칙 vs LLM F1
 python recommend.py       # 취향별 설명가능 추천 (phase 1 스코어러)
 python recommender.py     # 협업필터링(ALS)+감성 블렌딩 추천 + 시간분할 평가
-python chatbot.py         # 근거기반 Q&A
+python retriever.py       # 키워드 vs 의미검색(ko-sroberta+FAISS) 비교 데모
+python sentiment_finetune.py  # 네이버쇼핑 200k로 감성 분류기 학습(linear probing)+평가
+python chatbot.py         # 의미검색 RAG Q&A (LLM 없으면 근거만 반환)
 python -m uvicorn app:app # 웹 UI (localhost:8000)
 ```
 
@@ -117,7 +144,9 @@ reviewlens/
 ├─ pipeline.py     리뷰 → 분석 → 적재
 ├─ recommend.py    감성 기반 설명가능 추천 (phase 1 스코어러)
 ├─ recommender.py  협업필터링(ALS)+감성 블렌딩 추천 + 시뮬레이터·평가 (phase 2)
-├─ chatbot.py      근거 검색 + LLM 답변
+├─ retriever.py    ko-sroberta + FAISS 의미검색 리트리버 (phase 2)
+├─ sentiment_finetune.py  네이버쇼핑 200k 감성 분류기 학습 (linear probing, phase 2)
+├─ chatbot.py      의미검색 RAG + LLM 답변 (LLM 없으면 근거 fallback)
 ├─ eval.py         gold 대비 F1 측정
 ├─ app.py          FastAPI 웹 UI/API
 ├─ dashboard.html  대시보드 프런트엔드
@@ -130,5 +159,5 @@ reviewlens/
 ## 한계 & 다음 단계
 
 - **추천 (구현됨, Phase 2)**: 협업필터링(implicit ALS) + 감성 블렌딩 + 콜드스타트 폴백까지 구현·평가 완료. 다음은 **실데이터(Amazon-Reviews-2023)** 로더 연결로 합성 시뮬레이터를 대체.
-- **챗봇 검색 (다음)**: 현재 키워드 기반 → **임베딩(ko-sroberta) + FAISS** 의미검색으로 교체 예정.
-- **ABSA (다음)**: 재현율 개선을 위해 **Colab GPU에서 파인튜닝**(학습=클라우드, 추론=로컬 CPU) 예정.
+- **챗봇 의미검색 (구현됨, Phase 2)**: 키워드 → **ko-sroberta + FAISS** 의미검색으로 교체 완료(LLM 없이도 동작하는 fallback 포함). 다음은 규모 확장 시 IVF/HNSW 인덱스, 임베딩 캐시.
+- **ABSA 감성 분류기 (구현됨, Phase 2)**: 네이버쇼핑 200k로 감성 분류기를 CPU linear probing 학습(F1 0.914). 다음은 **속성 라벨 데이터(CARBD-Ko 등)** 로 *속성별* 파인튜닝, 그리고 규모 키울 때 **Colab GPU 전체 파인튜닝**(학습=클라우드, 추론=로컬 CPU).
