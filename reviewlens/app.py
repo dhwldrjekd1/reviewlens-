@@ -37,3 +37,14 @@ class Q(BaseModel):
 def chat(body: Q):
     ans, ctx = chatbot.ask(d, body.q)
     return {"answer": ans, "evidence": ctx}
+
+class FB(BaseModel):
+    q: str
+    answer: str = ""
+    vote: str = ""          # up | down
+    correction: str = ""    # 사용자 정정 (선택)
+
+@app.post("/api/feedback")
+def feedback(body: FB):
+    chatbot.record_feedback(d, body.q, body.answer, body.vote, body.correction)
+    return {"ok": True}

@@ -1,4 +1,5 @@
 import json, re, urllib.request
+import numpy as np
 import db, recommend, retriever
 
 ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"]
@@ -26,40 +27,65 @@ def ground(d, q):
     return _review_ctx(d, hits)
 
 
+# --- 교정 메모리: 과거 사용자 정정 중 '의미가 비슷한 질문'의 정정을 불러옴 ---
+# 모델 가중치를 안 건드리고 외부 메모리에 쌓음 → 즉시 반영 + 지식 보존(망가질 게 없음)
+def recall_corrections(d, q, k=2, thr=0.55):
+    rows = d.execute("select question, correction from feedback "
+                     "where correction is not null and trim(correction)!=''").fetchall()
+    if not rows:
+        return []
+    m = retriever.get_model()
+    qe = m.encode([q], normalize_embeddings=True)[0]
+    me = m.encode([r[0] for r in rows], normalize_embeddings=True)
+    sims = me @ qe
+    hits = sorted(((float(s), rows[i][1]) for i, s in enumerate(sims) if s >= thr), reverse=True)
+    return [c for _, c in hits[:k]]
+
+
+def record_feedback(d, q, answer="", vote="", correction=""):
+    d.execute("insert into feedback(question, answer, vote, correction) values(?,?,?,?)",
+              (q, answer, vote, correction))
+    d.commit()
+
+
 PROMPT = """너는 한국 쇼핑몰의 리뷰 분석 도우미야. 아래 '근거'에만 기반해 답해.
 
 규칙:
 - 반드시 자연스럽고 문법에 맞는 한국어로만 답한다. 한자나 영어 단어를 절대 섞지 않는다.
 - 근거에 없는 내용은 지어내지 않는다.
 - 1~3문장으로 간결하게.
-
-질문: {q}
+{corr}질문: {q}
 근거:
 {ctx}
 
 답변(한국어):"""
 
 
-# --- 한자/불필요 영어 탐지 (삭제하지 않고, 깨끗할 때까지 재생성하기 위한 판정) ---
-# 한자는 코드포인트로 판정 (리터럴 한자 범위를 쓰면 한글 AC00–D7A3까지 삼킬 위험)
-def _has_hanja(s):
+def _build(q, ctx, corr):
+    block = ""
+    if corr:
+        block = "확인된 정정(사용자 피드백 — 근거보다 우선 적용):\n" + \
+                "\n".join(f"- {c}" for c in corr) + "\n\n"
+    return PROMPT.format(corr=block, q=q, ctx=ctx)
+
+
+# --- 한자/불필요 영어 탐지 (삭제 대신 재생성 판정) ---
+def _has_hanja(s):  # 코드포인트로 판정 (리터럴 범위는 한글 AC00–D7A3을 삼킬 위험)
     return any(0x3400 <= ord(c) <= 0x9fff or 0xf900 <= ord(c) <= 0xfaff for c in s)
 
 
 def _bad_lang(s):
-    if _has_hanja(s):              # 한자
+    if _has_hanja(s):
         return True
-    for tok in s.split():          # 토큰 단위로 영어 검사
+    for tok in s.split():
         if not re.search(r"[A-Za-z]", tok):
             continue
-        if re.search(r"[가-힣]", tok):                 # 한글+영어 혼합 단어 (괜shaw)
+        if re.search(r"[가-힣]", tok):              # 한글+영어 혼합 단어 (괜shaw)
             return True
         bare = tok.strip(".,!?()[]\"'·").upper()
-        if bare == "CS":                               # 허용: 속성명 CS
+        if bare == "CS" or re.search(r"\d", tok):    # 허용: CS, 500ml 등
             continue
-        if re.search(r"\d", tok):                       # 허용: 500ml, X10 등 숫자 결합
-            continue
-        return True                                     # 그 외 순수 영어 단어 (good 등)
+        return True                                  # 그 외 순수 영어 단어
     return False
 
 
@@ -74,24 +100,36 @@ def _generate(prompt, temp=0.0, seed=0):
     return json.loads(urllib.request.urlopen(req, timeout=180).read())["response"].strip()
 
 
+# 자기검증: 답변이 근거에 충실한지 모델 스스로 판정 (근거 없는 환각 자동 차단)
+def _grounded(ans, ctx):
+    judge = ("다음 '답변'이 '근거'에 실제로 있는 내용만 말하는지 판정해. "
+             "근거에 없는 사실을 지어냈으면 NO, 충실하면 YES. 한 단어로만.\n"
+             f"근거:\n{ctx}\n답변: {ans}\n판정(YES/NO):")
+    r = _generate(judge).upper()
+    return "NO" not in r and "아니" not in r
+
+
 def ask(d, q):
     ctx = ground(d, q)
     if not ctx:
         return "관련 데이터를 못 찾았어요.", ""
+    corr = recall_corrections(d, q)           # 교정 메모리 반영
+    prompt = _build(q, ctx, corr)
     try:
-        ans = _generate(PROMPT.format(q=q, ctx=ctx))            # 1차: 결정적(temp 0)
+        ans = _generate(prompt)                                  # 1차(결정적)
         tries = 0
-        # 한자/영어 섞이면 '삭제'가 아니라 '재생성'(샘플링, seed 변경)으로 깨끗한 문장 확보
-        while _bad_lang(ans) and tries < 3:
+        while _bad_lang(ans) and tries < 2:                      # 언어 검증 → 재생성
             tries += 1
-            ans = _generate(PROMPT.format(q=q, ctx=ctx) +
-                            "\n\n주의: 한자나 영어를 섞지 말고 한국어 문장으로만 다시 답하라.",
-                            temp=0.6, seed=tries)
-        if _bad_lang(ans):  # 끝내 실패하면 깨진 문장 대신 근거로 안전 폴백 (문법 보존)
+            ans = _generate(prompt + "\n주의: 한자/영어 쓰지 말고 한국어로만.", 0.6, tries)
+        # 자기검증(근거 충실성) 1회 — 실패 시 1회 재생성
+        if not _bad_lang(ans) and not _grounded(ans, ctx):
+            cand = _generate(prompt + "\n주의: 근거에 있는 내용만 사용해 다시 답하라.", 0.4, 7)
+            if not _bad_lang(cand):
+                ans = cand
+        if _bad_lang(ans):  # 끝내 실패: 깨진 문장 대신 근거 폴백
             return "깔끔한 한국어 답변을 만들지 못했어요. 아래 근거 리뷰를 참고해주세요.\n" + ctx, ctx
         return ans, ctx
     except Exception as e:
-        # 의미검색은 LLM 없이도 동작 → Ollama 미가동/모델 미설치여도 근거는 반환
         return f"(LLM 응답 생성을 건너뜀: {e})\n검색된 근거 리뷰:\n{ctx}", ctx
 
 
@@ -100,8 +138,8 @@ if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     d = db.get_db()
-    for q in ["스텐 텀블러 후기 어때?", "이어폰 소리 어때?", "고객 응대(CS)는 괜찮아?", "배송 빠른 거 추천해줘"]:
+    # 교정 메모리 데모: 일부러 정정 하나 심고 비슷한 질문을 던져 반영되는지 확인
+    record_feedback(d, "백팩 배송 어때?", correction="베이직 백팩은 배송이 느린 편이라고 안내해야 한다.")
+    for q in ["이어폰 소리 어때?", "백팩 배송 빠른가요?"]:
         ans, ctx = ask(d, q)
-        print(f"\nQ: {q}")
-        print(f"A: {ans}")
-        print(f"한자·영어 없음? {'O' if not _bad_lang(ans) else 'X'}")
+        print(f"\nQ: {q}\nA: {ans}\n한자·영어 없음? {'O' if not _bad_lang(ans) else 'X'}")

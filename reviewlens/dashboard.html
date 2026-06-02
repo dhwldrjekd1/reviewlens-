@@ -116,6 +116,13 @@ td{padding:10px 8px;border-bottom:1px solid #f4f5f7}
 .btn:disabled{opacity:.5;cursor:default}
 .hint{font-size:10px;color:#b0b5c0;margin-top:6px}
 
+/* feedback */
+.fb{margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fb button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:3px 9px;cursor:pointer;font-size:11px;color:#666}
+.fb button:hover{background:#f6f7f9}
+.fb input{border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:11px;width:180px;outline:0}
+.fb .fbmsg{font-size:11px;color:#1a9c79;font-weight:600}
+
 /* loading / empty states */
 .loading,.empty{color:#b0b5c0;font-size:12px;padding:16px 4px;text-align:center}
 .loading::before{content:"";display:inline-block;width:11px;height:11px;margin-right:7px;border:2px solid #dfe2e8;border-top-color:#f0617e;border-radius:50%;vertical-align:-1px;animation:spin .7s linear infinite}
@@ -330,7 +337,13 @@ async function ask() {
     });
     pending.remove();
     const ev = (res.evidence || "").split("\n").map(esc).join("<br>");
-    chatBox.innerHTML += `<div class="msg a">${esc(res.answer)}${ev ? `<div class="ev">${ev}</div>` : ""}</div>`;
+    const qa = esc(q).replace(/"/g, "&quot;"), aa = esc(res.answer).replace(/"/g, "&quot;");
+    chatBox.innerHTML += `<div class="msg a">${esc(res.answer)}${ev ? `<div class="ev">${ev}</div>` : ""}
+      <div class="fb" data-q="${qa}" data-a="${aa}">
+        <button onclick="fb(this,'up')">👍 도움됨</button>
+        <button onclick="fb(this,'down')">👎 틀림</button>
+        <span class="fbmsg"></span>
+      </div></div>`;
   } catch (e) {
     pending.classList.remove("loading");
     pending.textContent = "오류: 응답을 받지 못했어요.";
@@ -338,6 +351,32 @@ async function ask() {
   chatBtn.disabled = false; chatQ.disabled = false;
   chatQ.focus();
   chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// 피드백: 👍/👎 + 정정(교정 메모리에 쌓여 다음 비슷한 질문에 반영됨)
+function postFb(q, a, vote, correction) {
+  fetch("/api/feedback", {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({q, answer: a, vote, correction})
+  });
+}
+function fb(btn, vote) {
+  const bar = btn.closest(".fb");
+  if (vote === "down" && !bar.querySelector(".corr")) {
+    const span = document.createElement("span");
+    span.innerHTML = `<input class="corr" placeholder="올바른 답/정정 입력 (선택)"> <button onclick="sendCorr(this)">저장</button>`;
+    bar.appendChild(span);
+    span.querySelector(".corr").focus();
+    return;
+  }
+  postFb(bar.dataset.q, bar.dataset.a, vote, "");
+  bar.querySelector(".fbmsg").textContent = vote === "up" ? "고마워요!" : "반영할게요.";
+}
+function sendCorr(btn) {
+  const bar = btn.closest(".fb");
+  const corr = bar.querySelector(".corr").value.trim();
+  postFb(bar.dataset.q, bar.dataset.a, "down", corr);
+  bar.querySelector(".fbmsg").textContent = corr ? "정정 저장됨 — 다음에 반영됩니다." : "반영할게요.";
 }
 
 loadSummary();

@@ -14,6 +14,11 @@ create table if not exists aspect_sentiment(
     review_id integer, item_id text,
     aspect text, sentiment text, confidence real, evidence text
 );
+create table if not exists feedback(
+    id integer primary key autoincrement,
+    question text, answer text, vote text, correction text,
+    created text default current_timestamp
+);
 """
 
 def get_db():
