@@ -3,6 +3,7 @@ import numpy as np
 import db, recommend, retriever
 
 ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"]
+MODEL = "qwen2.5:3b"   # 속도 우선이면 qwen2.5:1.5b 로 교체 (품질 약간↓)
 
 
 # 검색된 리뷰를 근거 텍스트로 (원문 + 속성 감성 라벨)
@@ -23,7 +24,7 @@ def ground(d, q):
         recs = recommend.recommend(d, {a: 1 for a in asp} or {"품질": 1})
         return "\n".join(f"- {n}: " + ", ".join(f"{a} {int(p*100)}%" for a, p in why)
                          for _, n, why in recs)
-    hits = retriever.search(d, q, k=3)  # 의미가 가까운 리뷰 Top-K (키워드 불일치도 검색)
+    hits = retriever.search(d, q, k=2)  # 근거 2개 (prefill 토큰↓ → 속도↑)
     return _review_ctx(d, hits)
 
 
@@ -48,17 +49,11 @@ def record_feedback(d, q, answer="", vote="", correction=""):
     d.commit()
 
 
-PROMPT = """너는 한국 쇼핑몰의 리뷰 분석 도우미야. 아래 '근거'에만 기반해 답해.
-
-규칙:
-- 반드시 자연스럽고 문법에 맞는 한국어로만 답한다. 한자나 영어 단어를 절대 섞지 않는다.
-- 근거에 없는 내용은 지어내지 않는다.
-- 1~3문장으로 간결하게.
+PROMPT = """아래 '근거'에만 기반해 한국어로만(한자·영어 금지) 1~2문장으로 답해. 근거에 없으면 지어내지 마.
 {corr}질문: {q}
 근거:
 {ctx}
-
-답변(한국어):"""
+답변:"""
 
 
 def _build(q, ctx, corr):
@@ -96,7 +91,7 @@ def _generate(prompt, temp=0.0, seed=0):
     opts = {"temperature": temp, "num_predict": 200}   # 답변 길이 제한 → 과생성 방지
     if seed:
         opts["seed"] = seed
-    body = json.dumps({"model": "qwen2.5:3b", "stream": False, "keep_alive": "30m",
+    body = json.dumps({"model": MODEL, "stream": False, "keep_alive": "30m",
                        "prompt": prompt, "options": opts}).encode()   # 모델 상시 로드
     req = urllib.request.Request(OLLAMA, body, {"Content-Type": "application/json"})
     return json.loads(urllib.request.urlopen(req, timeout=180).read())["response"].strip()
@@ -112,7 +107,7 @@ def ask_stream(d, q):
         return
     corr = recall_corrections(d, q)
     prompt = _build(q, ctx, corr)
-    body = json.dumps({"model": "qwen2.5:3b", "stream": True, "keep_alive": "30m",
+    body = json.dumps({"model": MODEL, "stream": True, "keep_alive": "30m",
                        "prompt": prompt, "options": {"temperature": 0.0, "num_predict": 200}}).encode()
     try:
         req = urllib.request.Request(OLLAMA, body, {"Content-Type": "application/json"})
