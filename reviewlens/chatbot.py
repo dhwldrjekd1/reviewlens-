@@ -89,15 +89,46 @@ def _bad_lang(s):
     return False
 
 
+OLLAMA = "http://localhost:11434/api/generate"
+
+
 def _generate(prompt, temp=0.0, seed=0):
-    opts = {"temperature": temp}
+    opts = {"temperature": temp, "num_predict": 200}   # 답변 길이 제한 → 과생성 방지
     if seed:
         opts["seed"] = seed
-    body = json.dumps({"model": "qwen2.5:3b", "stream": False,
-                       "prompt": prompt, "options": opts}).encode()
-    req = urllib.request.Request("http://localhost:11434/api/generate", body,
-                                 {"Content-Type": "application/json"})
+    body = json.dumps({"model": "qwen2.5:3b", "stream": False, "keep_alive": "30m",
+                       "prompt": prompt, "options": opts}).encode()   # 모델 상시 로드
+    req = urllib.request.Request(OLLAMA, body, {"Content-Type": "application/json"})
     return json.loads(urllib.request.urlopen(req, timeout=180).read())["response"].strip()
+
+
+# 스트리밍 답변: 토큰을 그대로 흘려보냄(체감 속도↑). 단 사후 자기검증/재생성은 불가 →
+# 강한 한국어 프롬프트 + temp 0에 의존. 견고함이 필요하면 비스트리밍 ask()를 쓸 것.
+def ask_stream(d, q):
+    ctx = ground(d, q)
+    if not ctx:
+        yield {"token": "관련 데이터를 못 찾았어요."}
+        yield {"evidence": "", "done": True}
+        return
+    corr = recall_corrections(d, q)
+    prompt = _build(q, ctx, corr)
+    body = json.dumps({"model": "qwen2.5:3b", "stream": True, "keep_alive": "30m",
+                       "prompt": prompt, "options": {"temperature": 0.0, "num_predict": 200}}).encode()
+    try:
+        req = urllib.request.Request(OLLAMA, body, {"Content-Type": "application/json"})
+        resp = urllib.request.urlopen(req, timeout=180)
+        for line in resp:                       # Ollama는 NDJSON 청크 스트림
+            line = line.strip()
+            if not line:
+                continue
+            obj = json.loads(line)
+            if obj.get("response"):
+                yield {"token": obj["response"]}
+            if obj.get("done"):
+                break
+    except Exception as e:
+        yield {"token": f"(LLM 응답 생성을 건너뜀: {e})"}
+    yield {"evidence": ctx, "done": True}
 
 
 # 자기검증: 답변이 근거에 충실한지 모델 스스로 판정 (근거 없는 환각 자동 차단)

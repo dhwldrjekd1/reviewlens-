@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
-import os, db, recommend, chatbot
+import os, json, db, recommend, chatbot
 
 app = FastAPI()
 d = db.get_db()
@@ -37,6 +37,13 @@ class Q(BaseModel):
 def chat(body: Q):
     ans, ctx = chatbot.ask(d, body.q)
     return {"answer": ans, "evidence": ctx}
+
+@app.post("/api/chat/stream")
+def chat_stream(body: Q):  # 토큰 스트리밍(NDJSON) — 체감 속도↑
+    def gen():
+        for obj in chatbot.ask_stream(d, body.q):
+            yield json.dumps(obj, ensure_ascii=False) + "\n"
+    return StreamingResponse(gen(), media_type="application/x-ndjson")
 
 class FB(BaseModel):
     q: str

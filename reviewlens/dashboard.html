@@ -327,27 +327,48 @@ async function ask() {
   chatQ.value = "";
   chatBtn.disabled = true; chatQ.disabled = true;
   chatBox.innerHTML += `<div class="msg u">${esc(q)}</div>`;
-  const pending = document.createElement("div");
-  pending.className = "msg a loading"; pending.textContent = "답변 생성 중";
-  chatBox.appendChild(pending);
+  const bubble = document.createElement("div");
+  bubble.className = "msg a loading"; bubble.textContent = "답변 생성 중";
+  chatBox.appendChild(bubble);
   chatBox.scrollTop = chatBox.scrollHeight;
+
+  let answer = "", evidence = "", started = false;
   try {
-    const res = await getJSON("/api/chat", {
+    const res = await fetch("/api/chat/stream", {
       method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({q})
     });
-    pending.remove();
-    const ev = (res.evidence || "").split("\n").map(esc).join("<br>");
-    const qa = esc(q).replace(/"/g, "&quot;"), aa = esc(res.answer).replace(/"/g, "&quot;");
-    chatBox.innerHTML += `<div class="msg a">${esc(res.answer)}${ev ? `<div class="ev">${ev}</div>` : ""}
-      <div class="fb" data-q="${qa}" data-a="${aa}">
-        <button onclick="fb(this,'up')">👍 도움됨</button>
-        <button onclick="fb(this,'down')">👎 틀림</button>
-        <span class="fbmsg"></span>
-      </div></div>`;
+    const reader = res.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    while (true) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let nl;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+        if (!line) continue;
+        const o = JSON.parse(line);
+        if (o.token) {                     // 토큰 실시간 표시
+          if (!started) { bubble.classList.remove("loading"); bubble.textContent = ""; started = true; }
+          answer += o.token; bubble.textContent = answer;
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        if (o.evidence !== undefined) evidence = o.evidence;
+      }
+    }
   } catch (e) {
-    pending.classList.remove("loading");
-    pending.textContent = "오류: 응답을 받지 못했어요.";
+    bubble.classList.remove("loading");
+    bubble.textContent = "오류: 응답을 받지 못했어요.";
   }
+  // 스트림 종료 → 근거 + 피드백 버튼 렌더
+  const ev = (evidence || "").split("\n").map(esc).join("<br>");
+  const qa = esc(q).replace(/"/g, "&quot;"), aa = esc(answer).replace(/"/g, "&quot;");
+  bubble.innerHTML = esc(answer) + (ev ? `<div class="ev">${ev}</div>` : "") +
+    `<div class="fb" data-q="${qa}" data-a="${aa}">
+      <button onclick="fb(this,'up')">👍 도움됨</button>
+      <button onclick="fb(this,'down')">👎 틀림</button>
+      <span class="fbmsg"></span>
+    </div>`;
   chatBtn.disabled = false; chatQ.disabled = false;
   chatQ.focus();
   chatBox.scrollTop = chatBox.scrollHeight;
