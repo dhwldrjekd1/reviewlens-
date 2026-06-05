@@ -1,0 +1,13 @@
+# 라이선스 말뭉치(국립국어원 ABSA) — 재배포 금지, 절대 커밋하지 않음
+json/
+**/nikl_*.csv
+**/absa_corpus*
+
+# 파이썬/캐시
+__pycache__/
+*.pyc
+
+# Claude/세션
+.claude/
+CLAUDE.md
+.mcp.json
