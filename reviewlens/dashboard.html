@@ -353,6 +353,9 @@ async function ask() {
           answer += o.token; bubble.textContent = answer;
           chatBox.scrollTop = chatBox.scrollHeight;
         }
+        if (o.replace !== undefined) {     // 한자/영어 섞였을 때 깨끗한 답변으로 교체
+          answer = o.replace; bubble.textContent = answer;
+        }
         if (o.evidence !== undefined) evidence = o.evidence;
       }
     }

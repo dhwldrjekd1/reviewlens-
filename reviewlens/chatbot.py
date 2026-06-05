@@ -49,19 +49,16 @@ def record_feedback(d, q, answer="", vote="", correction=""):
     d.commit()
 
 
-PROMPT = """아래 '근거'에만 기반해 한국어로만(한자·영어 금지) 1~2문장으로 답해. 근거에 없으면 지어내지 마.
-{corr}질문: {q}
-근거:
-{ctx}
-답변:"""
+_RULES = "한국어로만(한자·영어 금지) 1~2문장으로 답해."
 
 
 def _build(q, ctx, corr):
-    block = ""
-    if corr:
-        block = "확인된 정정(사용자 피드백 — 근거보다 우선 적용):\n" + \
-                "\n".join(f"- {c}" for c in corr) + "\n\n"
-    return PROMPT.format(corr=block, q=q, ctx=ctx)
+    if corr:  # 정정이 있으면 '근거에만 기반' 대신 '정정 우선'으로 — 안 그러면 정정을 무시함
+        head = ("아래 '정정'을 최우선으로 반영하고 '근거'도 참고해 " + _RULES + "\n"
+                "정정:\n" + "\n".join(f"- {c}" for c in corr) + "\n")
+    else:
+        head = "아래 '근거'에만 기반해 " + _RULES + " 근거에 없으면 지어내지 마.\n"
+    return head + f"질문: {q}\n근거:\n{ctx}\n답변:"
 
 
 # --- 한자/불필요 영어 탐지 (삭제 대신 재생성 판정) ---
@@ -109,6 +106,7 @@ def ask_stream(d, q):
     prompt = _build(q, ctx, corr)
     body = json.dumps({"model": MODEL, "stream": True, "keep_alive": "30m",
                        "prompt": prompt, "options": {"temperature": 0.0, "num_predict": 200}}).encode()
+    full = ""
     try:
         req = urllib.request.Request(OLLAMA, body, {"Content-Type": "application/json"})
         resp = urllib.request.urlopen(req, timeout=180)
@@ -118,11 +116,19 @@ def ask_stream(d, q):
                 continue
             obj = json.loads(line)
             if obj.get("response"):
+                full += obj["response"]
                 yield {"token": obj["response"]}
             if obj.get("done"):
                 break
     except Exception as e:
         yield {"token": f"(LLM 응답 생성을 건너뜀: {e})"}
+        yield {"evidence": ctx, "done": True}
+        return
+    # 스트리밍은 사후 언어검증을 못 하므로, 끝난 뒤 한자/영어가 섞였으면 깨끗하게 재생성해 교체
+    if _bad_lang(full):
+        clean = _generate(prompt + "\n주의: 한자나 영어를 쓰지 말고 한국어 문장으로만.", 0.6, 1)
+        if not _bad_lang(clean):
+            yield {"replace": clean}
     yield {"evidence": ctx, "done": True}
 
 
