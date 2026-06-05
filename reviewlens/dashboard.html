@@ -5,13 +5,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ReviewLens — 전략 보드</title>
-<link rel="stylesheet" href="/static/dashboard.css">
+<link rel="stylesheet" href="/static/dashboard.css?v=5">
 </head>
 <body>
 <div class="app">
 
   <aside class="side">
-    <div class="logo"><span class="ic"><i data-lucide="bar-chart-3" style="color:#fff"></i></span>ReviewLens</div>
+    <a class="logo" href="/"><span class="ic"><i data-lucide="bar-chart-3" style="color:#fff"></i></span>ReviewLens</a>
     <nav class="nav" id="nav">
       <a class="on" data-v="strategy"><i data-lucide="layout-dashboard"></i> 전략 보드</a>
       <a data-v="review"><i data-lucide="message-square"></i> 리뷰 분석</a>
@@ -19,6 +19,7 @@
       <a data-v="customer"><i data-lucide="users"></i> 고객 인사이트</a>
       <a data-v="rival"><i data-lucide="trending-up"></i> 경쟁사 분석</a>
       <a data-v="market"><i data-lucide="megaphone"></i> 마케팅 추천</a>
+      <a href="/cs"><i data-lucide="bot"></i> CS 챗봇 ↗</a>
       <a data-v="alert"><i data-lucide="bell"></i> 알림 센터</a>
       <div class="sep"></div>
       <a data-v="data"><i data-lucide="database"></i> 데이터 관리</a>
@@ -47,7 +48,7 @@ const nav=document.getElementById('nav'), wrap=document.getElementById('wrap'), 
 
 // 탭 partial 로드 (한 번 받은 건 캐시)
 async function load(v){
-  try{ if(!cache[v]) cache[v]=await fetch('/tabs/'+v+'.html').then(r=>r.text()); wrap.innerHTML=cache[v]; }
+  try{ if(!cache[v]) cache[v]=await fetch('/tabs/'+v+'.html',{cache:'no-store'}).then(r=>r.text()); wrap.innerHTML=cache[v]; }
   catch(e){ wrap.innerHTML='<div class="panel">탭을 불러오지 못했어요. (서버로 띄워야 합니다)</div>'; }
   if(window.lucide) lucide.createIcons();   // 사이드바 + 주입된 탭 아이콘 렌더
   window.scrollTo(0,0);

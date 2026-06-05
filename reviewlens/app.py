@@ -11,9 +11,21 @@ HERE = os.path.dirname(__file__)
 app.mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static")
 app.mount("/tabs", StaticFiles(directory=os.path.join(HERE, "tabs")), name="tabs")
 
+def _page(name):  # no-store: 수정이 새로고침에 바로 반영되게
+    html = open(os.path.join(HERE, name), encoding="utf-8").read()
+    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+
 @app.get("/", response_class=HTMLResponse)
 def home():
-    return open(os.path.join(HERE, "dashboard.html"), encoding="utf-8").read()
+    return _page("index.html")            # 랜딩(두 제품 진입)
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard():
+    return _page("dashboard.html")         # 분석 대시보드
+
+@app.get("/cs", response_class=HTMLResponse)
+def cs():
+    return _page("cs.html")                # CS 챗봇 (독립)
 
 @app.get("/api/summary")
 def summary():
