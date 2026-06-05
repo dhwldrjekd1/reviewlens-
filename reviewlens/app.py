@@ -1,11 +1,15 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import os, json, db, recommend, chatbot
 
 app = FastAPI()
 d = db.get_db()
 HERE = os.path.dirname(__file__)
+# 대시보드 정적 파일(css)·탭 partial 제공 — 가벼운 정적 서빙(새 의존성 없음)
+app.mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static")
+app.mount("/tabs", StaticFiles(directory=os.path.join(HERE, "tabs")), name="tabs")
 
 @app.get("/", response_class=HTMLResponse)
 def home():

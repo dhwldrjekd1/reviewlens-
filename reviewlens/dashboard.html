@@ -1,410 +1,80 @@
 <!doctype html>
 <html lang="ko">
+<!-- 껍데기. 탭 내용은 tabs/<name>.html 을 fetch로 불러와 #wrap에 주입. 서버는 정적 파일만(StaticFiles) -->
 <head>
 <meta charset="utf-8">
-<title>ReviewLens — 마케팅 대시보드</title>
-<style>
-:root{
-  --bg:#f4f5f7; --card:#fff; --line:#edeef2; --text:#222; --muted:#8a90a0;
-  --green:#23c197; --blue:#4a90e2; --purple:#7c6cf0; --orange:#f5a623;
-  --red:#ef5878; --gray:#cdd2db;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'Pretendard','Malgun Gothic',sans-serif;font-size:13px}
-.app{display:flex;min-height:100vh}
-
-/* ---- sidebar ---- */
-.side{width:212px;background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:20px 14px}
-.logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:17px;margin:6px 8px 26px}
-.logo .dot{width:22px;height:22px;border-radius:50%;border:4px solid #f0506e;display:inline-block}
-.nav a{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:9px;color:#5c6270;text-decoration:none;font-weight:600;margin-bottom:3px}
-.nav a.on{background:#fdeef0;color:#ef4f6d}
-.nav a:hover:not(.on){background:#f6f7f9}
-.nav svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8}
-.side .grow{flex:1}
-.conn{background:#f6f7f9;border-radius:10px;padding:12px;font-size:11px;color:var(--muted)}
-.conn b{color:#444;font-size:12px}
-.conn .ln{height:5px;border-radius:3px;background:#e3e6ec;margin-top:8px;overflow:hidden}
-.conn .ln i{display:block;height:100%;width:100%;background:var(--green)}
-.setting{display:flex;align-items:center;gap:10px;padding:11px 12px;color:#5c6270;font-weight:600;margin-top:6px}
-
-/* ---- topbar ---- */
-.main{flex:1;display:flex;flex-direction:column;min-width:0}
-.top{display:flex;align-items:center;gap:14px;padding:18px 26px;background:var(--bg)}
-.top h1{font-size:23px;font-weight:800;white-space:nowrap}
-.search{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 13px;color:var(--muted)}
-.top .right{margin-left:auto;display:flex;align-items:center;gap:14px}
-.search input{border:0;outline:0;flex:1;font-size:13px}
-.pill{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px 13px;color:#555;white-space:nowrap}
-.export{background:#f5455c;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer}
-.bell{position:relative;width:20px;height:20px}
-.bell .b{position:absolute;top:-6px;right:-6px;background:#f5455c;color:#fff;border-radius:9px;font-size:9px;padding:1px 5px;font-weight:700}
-.me{display:flex;align-items:center;gap:9px}
-.me .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ffb199,#ff6f91)}
-.me small{display:block;color:var(--muted);font-size:10px}
-.me b{font-size:12px}
-
-/* ---- grid ---- */
-.wrap{padding:6px 26px 30px;display:flex;flex-direction:column;gap:16px}
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.kpi{border-radius:14px;padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start}
-.kpi .lab{font-size:12px;color:#7a7f8c;font-weight:600}
-.kpi .val{font-size:30px;font-weight:800;margin:8px 0 6px}
-.kpi .chg{font-size:11px;color:#7a7f8c}
-.kpi .up{color:#f5455c;font-weight:700}
-.kpi .ic{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#fff}
-.k1{background:#fdeef0}.k1 .ic{background:#f0617e}
-.k2{background:#e9f8f2}.k2 .ic{background:#23c197}
-.k3{background:#eef0fd}.k3 .ic{background:#7c6cf0}
-.k4{background:#fff5e9}.k4 .ic{background:#f5a623}
-
-.row{display:grid;gap:16px}
-.r2{grid-template-columns:1.35fr 1fr 1fr}
-.r-live{grid-template-columns:1.3fr 1fr 1.1fr}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
-.panel h3{font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:6px}
-.panel h3 .q{color:#c2c6cf;font-weight:400}
-.head{display:flex;justify-content:space-between;align-items:center}
-.sel{font-size:11px;color:#666;border:1px solid var(--line);border-radius:7px;padding:4px 9px}
-.legend{display:flex;gap:14px;font-size:11px;color:#888;margin-bottom:6px}
-.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px;vertical-align:middle}
-
-/* live / sample badges */
-.live{font-size:10px;font-weight:700;color:#1a9c79;background:#e9f8f2;border-radius:6px;padding:2px 7px;margin-left:auto}
-.sample{font-size:10px;font-weight:700;color:#9aa0ac;background:#f1f2f5;border-radius:6px;padding:2px 7px;margin-left:auto}
-
-/* category bars */
-.catbar{display:flex;align-items:center;gap:10px;margin:13px 0;font-size:12px}
-.catbar .nm{width:54px;color:#555}
-.catbar .tr{flex:1;background:#f1f2f5;border-radius:6px;height:13px;overflow:hidden}
-.catbar .tr i{display:block;height:100%;border-radius:6px}
-.catbar .pc{width:42px;text-align:right;font-weight:700;color:#444}
-.axis{display:flex;justify-content:space-between;color:#b7bcc6;font-size:10px;margin-top:8px;padding-left:64px}
-
-/* attribute stacked */
-.attr{margin:13px 0;font-size:11px}
-.attr .nm{color:#555;margin-bottom:4px;font-size:12px}
-.attr .st{display:flex;height:18px;border-radius:5px;overflow:hidden;color:#fff;font-weight:700}
-.attr .st span{display:flex;align-items:center;justify-content:center;min-width:0}
-
-/* table */
-table{width:100%;border-collapse:collapse;font-size:12px}
-th{text-align:left;color:#9a9fac;font-weight:600;font-size:11px;padding:6px 8px;border-bottom:1px solid var(--line)}
-td{padding:10px 8px;border-bottom:1px solid #f4f5f7}
-.badge{padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700}
-.b-red{background:#fdecef;color:#e0436a}.b-yel{background:#fff5e3;color:#d98a13}.b-grn{background:#e9f8f2;color:#1a9c79}
-
-/* recommend panel */
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.chip{font-size:11px;border:1px solid var(--line);border-radius:20px;padding:5px 11px;cursor:pointer;user-select:none;color:#666;background:#fff}
-.chip.on{background:#fdeef0;border-color:#f5b6c2;color:#e0436a;font-weight:700}
-.recItem{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:9px}
-.recItem b{font-size:13px}
-.recItem .score{float:right;font-size:11px;color:#7c6cf0;font-weight:700}
-.recItem .why{font-size:11px;color:#8a90a0;margin-top:5px}
-.btn{background:#f5455c;color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-size:12px}
-
-/* chatbot panel */
-.chatBox{height:230px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px;margin-bottom:10px}
-.msg{max-width:88%;padding:9px 12px;border-radius:12px;font-size:12px;line-height:1.5}
-.msg.u{align-self:flex-end;background:#fdeef0;color:#c23258;border-bottom-right-radius:3px}
-.msg.a{align-self:flex-start;background:#f6f7f9;color:#333;border-bottom-left-radius:3px}
-.msg .ev{margin-top:7px;padding-top:7px;border-top:1px dashed #d9dce3;color:#8a90a0;font-size:10px;line-height:1.5}
-.chatIn{display:flex;gap:8px}
-.chatIn input{flex:1;border:1px solid var(--line);border-radius:8px;padding:9px 12px;font-size:12px;outline:0}
-.chatIn input:focus{border-color:#f5b6c2}
-.btn:disabled{opacity:.5;cursor:default}
-.hint{font-size:10px;color:#b0b5c0;margin-top:6px}
-
-/* feedback */
-.fb{margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.fb button{border:1px solid var(--line);background:#fff;border-radius:7px;padding:3px 9px;cursor:pointer;font-size:11px;color:#666}
-.fb button:hover{background:#f6f7f9}
-.fb input{border:1px solid var(--line);border-radius:7px;padding:5px 8px;font-size:11px;width:180px;outline:0}
-.fb .fbmsg{font-size:11px;color:#1a9c79;font-weight:600}
-
-/* loading / empty states */
-.loading,.empty{color:#b0b5c0;font-size:12px;padding:16px 4px;text-align:center}
-.loading::before{content:"";display:inline-block;width:11px;height:11px;margin-right:7px;border:2px solid #dfe2e8;border-top-color:#f0617e;border-radius:50%;vertical-align:-1px;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* responsive */
-@media (max-width:1180px){
-  .r2,.r-live{grid-template-columns:1fr 1fr}
-  .r2 .panel:first-child,.r-live .panel:last-child{grid-column:span 2}
-}
-@media (max-width:720px){
-  .side{display:none}
-  .kpis{grid-template-columns:repeat(2,1fr)}
-  .r2,.r-live{grid-template-columns:1fr}
-  .row .panel{grid-column:auto !important}
-  .top{flex-wrap:wrap}
-}
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReviewLens — 전략 보드</title>
+<link rel="stylesheet" href="/static/dashboard.css">
 </head>
 <body>
 <div class="app">
 
-  <!-- sidebar -->
   <aside class="side">
-    <div class="logo"><span class="dot"></span>ReviewLens</div>
-    <nav class="nav">
-      <a class="on" href="#"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8M5 10v10h14V10"/></svg>대시보드</a>
-      <a href="#"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>리뷰 분석</a>
-      <a href="#"><svg viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4 8 4 8-4zM4 7v10l8 4 8-4V7"/></svg>상품 인사이트</a>
-      <a href="#"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>캠페인 성과</a>
-      <a href="#"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>이슈 모니터링</a>
-      <a href="#"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6"/></svg>리포트</a>
+    <div class="logo"><span class="ic"><i data-lucide="bar-chart-3" style="color:#fff"></i></span>ReviewLens</div>
+    <nav class="nav" id="nav">
+      <a class="on" data-v="strategy"><i data-lucide="layout-dashboard"></i> 전략 보드</a>
+      <a data-v="review"><i data-lucide="message-square"></i> 리뷰 분석</a>
+      <a data-v="product"><i data-lucide="package"></i> 상품 분석</a>
+      <a data-v="customer"><i data-lucide="users"></i> 고객 인사이트</a>
+      <a data-v="rival"><i data-lucide="trending-up"></i> 경쟁사 분석</a>
+      <a data-v="market"><i data-lucide="megaphone"></i> 마케팅 추천</a>
+      <a data-v="alert"><i data-lucide="bell"></i> 알림 센터</a>
+      <div class="sep"></div>
+      <a data-v="data"><i data-lucide="database"></i> 데이터 관리</a>
+      <a data-v="setting"><i data-lucide="settings"></i> 설정</a>
     </nav>
     <div class="grow"></div>
-    <div class="conn">데이터 연동 현황<br><b>API 4 / 4 연결됨</b><div class="ln"><i></i></div></div>
-    <div class="setting"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.5-2.4 1a7 7 0 0 0-1.7-1l-.4-2.5h-4l-.4 2.5a7 7 0 0 0-1.7 1l-2.4-1-2 3.5 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 1.7 1l.4 2.5h4l.4-2.5a7 7 0 0 0 1.7-1l2.4 1 2-3.5-2-1.5a7 7 0 0 0 .1-1z"/></svg>설정</div>
+    <div class="ucard"><span class="av">M</span><span><small>마케팅팀</small><b>Marketing Team</b></span><span class="ch"><i data-lucide="chevron-down"></i></span></div>
+    <div class="period">데이터 기간<b>2025.05.12 ~ 2025.05.18</b>비교 기간<b>2025.05.05 ~ 2025.05.11</b></div>
+    <div class="dlbtn"><i data-lucide="download"></i> 보고서 다운로드 <i data-lucide="arrow-right"></i></div>
   </aside>
 
-  <!-- main -->
   <div class="main">
     <header class="top">
-      <h1>마케팅 대시보드</h1>
-      <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#aab" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg><input placeholder="검색어를 입력하세요"></div>
-      <div class="right">
-        <div class="pill">📅 최근 데이터 ▾</div>
-        <div class="pill">⚙ 필터</div>
-        <button class="export">⤓ 리포트 내보내기</button>
-        <div class="bell"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="b">3</span></div>
-        <div class="me"><span class="av"></span><span><small>마케팅팀</small><b>김서연 ▾</b></span></div>
-      </div>
+      <div class="pill"><i data-lucide="calendar-days"></i> 2025.05.12 ~ 2025.05.18 (최근 7일)</div>
+      <div class="pill">카테고리 전체 <i data-lucide="chevron-down"></i></div><div class="grow"></div>
+      <div class="bell"><i data-lucide="bell"></i><span class="b">8</span></div>
+      <button class="share"><i data-lucide="share-2"></i> 인사이트 요약 공유</button>
     </header>
-
-    <div class="wrap">
-
-      <!-- KPIs (실데이터 /api/stats) -->
-      <div class="kpis">
-        <div class="kpi k1"><div><div class="lab">총 리뷰 수</div><div class="val" id="kReviews">–</div><div class="chg">감성 저장소 기준</div></div><div class="ic">💬</div></div>
-        <div class="kpi k2"><div><div class="lab">긍정 비율</div><div class="val" id="kPos">–</div><div class="chg">속성 감성 전체</div></div><div class="ic">☺</div></div>
-        <div class="kpi k3"><div><div class="lab">분석 상품 수</div><div class="val" id="kItems">–</div><div class="chg">카탈로그</div></div><div class="ic">🛍</div></div>
-        <div class="kpi k4"><div><div class="lab">부정 속성 건수</div><div class="val" id="kNeg">–</div><div class="chg">개선 후보</div></div><div class="ic">⚠</div></div>
-      </div>
-
-      <!-- row 2 -->
-      <div class="row r2">
-        <!-- 감성 추이 (샘플 시각화) -->
-        <div class="panel">
-          <div class="head"><h3>리뷰 감성 추이</h3><span class="sample">샘플</span></div>
-          <div class="legend"><span><i style="background:#23c197"></i>긍정</span><span><i style="background:#cdd2db"></i>중립</span><span><i style="background:#ef5878"></i>부정</span></div>
-          <svg viewBox="0 0 720 230" width="100%">
-            <g stroke="#eef0f3"><line x1="55" y1="20" x2="710" y2="20"/><line x1="55" y1="56" x2="710" y2="56"/><line x1="55" y1="92" x2="710" y2="92"/><line x1="55" y1="128" x2="710" y2="128"/><line x1="55" y1="164" x2="710" y2="164"/><line x1="55" y1="200" x2="710" y2="200"/></g>
-            <path d="M60 92 L165 85 L270 67 L375 78 L480 63 L585 74 L690 56 L690 200 L60 200 Z" fill="#23c197" opacity="0.12"/>
-            <polyline points="60,92 165,85 270,67 375,78 480,63 585,74 690,56" fill="none" stroke="#23c197" stroke-width="2.5"/>
-            <polyline points="60,153 165,155 270,153 375,144 480,150 585,148 690,148" fill="none" stroke="#cdd2db" stroke-width="2.5"/>
-            <polyline points="60,189 165,187 270,189 375,186 480,187 585,189 690,189" fill="none" stroke="#ef5878" stroke-width="2.5"/>
-            <g fill="#9aa0ac" font-size="10" text-anchor="middle"><text x="60" y="220">D-6</text><text x="165" y="220">D-5</text><text x="270" y="220">D-4</text><text x="375" y="220">D-3</text><text x="480" y="220">D-2</text><text x="585" y="220">D-1</text><text x="690" y="220">오늘</text></g>
-          </svg>
-          <div class="hint">※ 시계열은 데모용 샘플 — 실데이터 연동은 아래 LIVE 패널 참조</div>
-        </div>
-
-        <!-- 속성별 평가 (실데이터 /api/summary) -->
-        <div class="panel">
-          <div class="head"><h3>속성별 평가</h3><span class="live">● LIVE</span></div>
-          <div class="legend"><span><i style="background:#23c197"></i>긍정</span><span><i style="background:#ef5878"></i>부정</span></div>
-          <div id="aspectBars"><div class="loading">불러오는 중</div></div>
-        </div>
-
-        <!-- 상품별 감성 요약 (실데이터 /api/summary) -->
-        <div class="panel">
-          <div class="head"><h3>상품별 감성 요약</h3><span class="live">● LIVE</span></div>
-          <table>
-            <tr><th>상품</th><th>긍정률</th><th>약점 속성</th><th>상태</th></tr>
-            <tbody id="prodRows"><tr><td colspan="4"><div class="loading">불러오는 중</div></td></tr></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- row 3 : LIVE 추천 + 챗봇 -->
-      <div class="row r-live">
-        <!-- 설명가능 추천 (실데이터 /api/recommend) -->
-        <div class="panel">
-          <div class="head"><h3>설명가능 추천</h3><span class="live">● LIVE</span></div>
-          <div style="font-size:11px;color:#8a90a0;margin-bottom:8px">중시하는 속성을 고르면 감성 점수 기반으로 추천 (콜드스타트)</div>
-          <div class="chips" id="prefChips"></div>
-          <button class="btn" id="recBtn" onclick="recommend()">추천 받기</button>
-          <div id="recList" style="margin-top:12px"></div>
-        </div>
-
-        <!-- 근거기반 챗봇 (실데이터 /api/chat) -->
-        <div class="panel" style="grid-column:span 2">
-          <div class="head"><h3>근거기반 챗봇 <span class="q">· 의미검색 RAG</span></h3><span class="live">● LIVE</span></div>
-          <div class="chatBox" id="chatBox">
-            <div class="msg a">안녕하세요! 리뷰 기반으로 답해드려요. 예) <b>이어폰 소리 어때?</b>, <b>배송 빠른 거 추천해줘</b></div>
-          </div>
-          <div class="chatIn">
-            <input id="chatQ" placeholder="예: 이어폰 소리 어때? / 배송 빠른 거 추천해줘" onkeydown="if(event.key==='Enter')ask()">
-            <button class="btn" id="chatBtn" onclick="ask()">전송</button>
-          </div>
-          <div class="hint">ko-sroberta + FAISS로 근거 리뷰를 찾고 로컬 LLM(qwen2.5:3b)이 답변 · LLM 미가동 시 근거만 표시</div>
-        </div>
-      </div>
-
-    </div>
+    <div class="wrap" id="wrap"></div>
   </div>
 </div>
 
+<script src="https://unpkg.com/lucide@latest"></script>
 <script>
-const ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"];
-const getJSON = (u, o) => fetch(u, o).then(r => r.json());
-const esc = s => (s || "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+const nav=document.getElementById('nav'), wrap=document.getElementById('wrap'), cache={};
 
-// KPI + 속성별 평가 + 상품별 요약 (실데이터)
-async function loadSummary() {
-  try {
-    const s = await getJSON("/api/stats");
-    kReviews.textContent = s.reviews.toLocaleString();
-    kPos.textContent = s.pos_ratio + "%";
-    kItems.textContent = s.items;
-    kNeg.textContent = s.neg;
-  } catch (e) {}
-
-  let sum;
-  try {
-    sum = await getJSON("/api/summary");
-  } catch (e) {
-    aspectBars.innerHTML = '<div class="empty">데이터를 불러오지 못했어요.</div>';
-    prodRows.innerHTML = '<tr><td colspan="4"><div class="empty">데이터를 불러오지 못했어요.</div></td></tr>';
-    return;
-  }
-  if (!sum.length) {
-    aspectBars.innerHTML = '<div class="empty">아직 분석된 리뷰가 없어요.</div>';
-    prodRows.innerHTML = '<tr><td colspan="4"><div class="empty">데이터 없음 — pipeline.py 실행 필요</div></td></tr>';
-    return;
-  }
-  // 속성별 집계
-  const agg = {};
-  sum.forEach(r => { const a = agg[r.aspect] || (agg[r.aspect] = {pos:0, neg:0}); a.pos += r.pos; a.neg += r.neg; });
-  aspectBars.innerHTML = ASPECTS.filter(a => agg[a]).map(a => {
-    const t = agg[a].pos + agg[a].neg, pp = t ? Math.round(100*agg[a].pos/t) : 0;
-    return `<div class="attr"><div class="nm">${a}</div><div class="st">
-      <span style="width:${pp}%;background:#23c197">${pp ? pp+"%" : ""}</span>
-      <span style="width:${100-pp}%;background:#ef5878">${100-pp ? (100-pp)+"%" : ""}</span></div></div>`;
-  }).join("");
-
-  // 상품별 요약
-  const items = {};
-  sum.forEach(r => { (items[r.name] || (items[r.name] = [])).push(r); });
-  prodRows.innerHTML = Object.entries(items).map(([name, rows]) => {
-    const pos = rows.reduce((s,r)=>s+r.pos,0), neg = rows.reduce((s,r)=>s+r.neg,0);
-    const ratio = Math.round(100*pos/((pos+neg)||1));
-    const weak = rows.filter(r => r.neg > r.pos).map(r => r.aspect).join(", ") || "–";
-    const [cls, st] = ratio>=70 ? ["b-grn","안정"] : ratio>=50 ? ["b-yel","관찰"] : ["b-red","조치 필요"];
-    return `<tr><td>${esc(name)}</td><td>${ratio}%</td><td>${esc(weak)}</td><td><span class="badge ${cls}">${st}</span></td></tr>`;
-  }).join("");
+// 탭 partial 로드 (한 번 받은 건 캐시)
+async function load(v){
+  try{ if(!cache[v]) cache[v]=await fetch('/tabs/'+v+'.html').then(r=>r.text()); wrap.innerHTML=cache[v]; }
+  catch(e){ wrap.innerHTML='<div class="panel">탭을 불러오지 못했어요. (서버로 띄워야 합니다)</div>'; }
+  if(window.lucide) lucide.createIcons();   // 사이드바 + 주입된 탭 아이콘 렌더
+  window.scrollTo(0,0);
 }
+nav.addEventListener('click',e=>{const a=e.target.closest('a[data-v]');if(!a)return;
+  nav.querySelectorAll('a').forEach(x=>x.classList.toggle('on',x===a)); load(a.dataset.v);});
+load('strategy');
 
-// 추천 속성 칩
-prefChips.innerHTML = ASPECTS.map(a => `<span class="chip" data-a="${a}" onclick="this.classList.toggle('on')">${a}</span>`).join("");
-document.querySelector('.chip[data-a="배송"]').classList.add("on");
-document.querySelector('.chip[data-a="가격"]').classList.add("on");
-
-async function recommend() {
-  const prefs = [...document.querySelectorAll(".chip.on")].map(c => c.dataset.a);
-  const q = prefs.length ? prefs.join(",") : "품질";
-  recBtn.disabled = true;
-  recList.innerHTML = '<div class="loading">추천 계산 중</div>';
-  try {
-    const recs = await getJSON("/api/recommend?prefs=" + encodeURIComponent(q));
-    recList.innerHTML = recs.length ? recs.map(r => {
-      const why = r.why.map(w => `${w.aspect} ${w.pos}%`).join(" · ") || "근거 부족";
-      return `<div class="recItem"><b>${esc(r.name)}</b><span class="score">score ${r.score}</span>
-        <div class="why">${esc(why)}</div></div>`;
-    }).join("") : '<div class="empty">조건에 맞는 추천이 없어요.</div>';
-  } catch (e) {
-    recList.innerHTML = '<div class="empty">추천을 불러오지 못했어요.</div>';
-  }
-  recBtn.disabled = false;
+// AI Q&A — 실제 챗봇(/api/chat/stream). 전역 함수(탭의 inline onclick에서 호출)
+const esc=s=>(s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+async function ask(){
+  const box=document.getElementById('chatbox'),inp=document.getElementById('q'),btn=document.getElementById('send');
+  const q=inp.value.trim();if(!q)return;inp.value="";btn.disabled=inp.disabled=true;
+  box.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div>`);
+  const a=document.createElement('div');a.className='msg a';a.innerHTML='<span class="ab"></span><div>…</div>';
+  box.appendChild(a);const body=a.querySelector('div');box.scrollTop=box.scrollHeight;
+  let ans="",ev="",st=false;
+  try{const res=await fetch('/api/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})});
+    const rd=res.body.getReader(),dec=new TextDecoder();let buf="";
+    while(true){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let nl;
+      while((nl=buf.indexOf("\n"))>=0){const line=buf.slice(0,nl).trim();buf=buf.slice(nl+1);if(!line)continue;const o=JSON.parse(line);
+        if(o.token){if(!st){body.textContent="";st=true;}ans+=o.token;body.textContent=ans;box.scrollTop=box.scrollHeight;}
+        if(o.replace!==undefined){ans=o.replace;body.textContent=ans;}if(o.evidence!==undefined)ev=o.evidence;}}
+  }catch(e){body.textContent="응답을 받지 못했어요. (서버/Ollama 확인)";}
+  if(ev){const d=document.createElement('div');d.className='ev';d.innerHTML=ev.split("\n").map(esc).join("<br>");body.appendChild(d);}
+  btn.disabled=inp.disabled=false;inp.focus();box.scrollTop=box.scrollHeight;
 }
-
-async function ask() {
-  const q = chatQ.value.trim();
-  if (!q) return;
-  chatQ.value = "";
-  chatBtn.disabled = true; chatQ.disabled = true;
-  chatBox.innerHTML += `<div class="msg u">${esc(q)}</div>`;
-  const bubble = document.createElement("div");
-  bubble.className = "msg a loading"; bubble.textContent = "답변 생성 중";
-  chatBox.appendChild(bubble);
-  chatBox.scrollTop = chatBox.scrollHeight;
-
-  let answer = "", evidence = "", started = false;
-  try {
-    const res = await fetch("/api/chat/stream", {
-      method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({q})
-    });
-    const reader = res.body.getReader(), dec = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const {value, done} = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, {stream: true});
-      let nl;
-      while ((nl = buf.indexOf("\n")) >= 0) {
-        const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-        if (!line) continue;
-        const o = JSON.parse(line);
-        if (o.token) {                     // 토큰 실시간 표시
-          if (!started) { bubble.classList.remove("loading"); bubble.textContent = ""; started = true; }
-          answer += o.token; bubble.textContent = answer;
-          chatBox.scrollTop = chatBox.scrollHeight;
-        }
-        if (o.replace !== undefined) {     // 한자/영어 섞였을 때 깨끗한 답변으로 교체
-          answer = o.replace; bubble.textContent = answer;
-        }
-        if (o.evidence !== undefined) evidence = o.evidence;
-      }
-    }
-  } catch (e) {
-    bubble.classList.remove("loading");
-    bubble.textContent = "오류: 응답을 받지 못했어요.";
-  }
-  // 스트림 종료 → 근거 + 피드백 버튼 렌더
-  const ev = (evidence || "").split("\n").map(esc).join("<br>");
-  const qa = esc(q).replace(/"/g, "&quot;"), aa = esc(answer).replace(/"/g, "&quot;");
-  bubble.innerHTML = esc(answer) + (ev ? `<div class="ev">${ev}</div>` : "") +
-    `<div class="fb" data-q="${qa}" data-a="${aa}">
-      <button onclick="fb(this,'up')">👍 도움됨</button>
-      <button onclick="fb(this,'down')">👎 틀림</button>
-      <span class="fbmsg"></span>
-    </div>`;
-  chatBtn.disabled = false; chatQ.disabled = false;
-  chatQ.focus();
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// 피드백: 👍/👎 + 정정(교정 메모리에 쌓여 다음 비슷한 질문에 반영됨)
-function postFb(q, a, vote, correction) {
-  fetch("/api/feedback", {
-    method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({q, answer: a, vote, correction})
-  });
-}
-function fb(btn, vote) {
-  const bar = btn.closest(".fb");
-  if (vote === "down" && !bar.querySelector(".corr")) {
-    const span = document.createElement("span");
-    span.innerHTML = `<input class="corr" placeholder="올바른 답/정정 입력 (선택)"> <button onclick="sendCorr(this)">저장</button>`;
-    bar.appendChild(span);
-    span.querySelector(".corr").focus();
-    return;
-  }
-  postFb(bar.dataset.q, bar.dataset.a, vote, "");
-  bar.querySelector(".fbmsg").textContent = vote === "up" ? "고마워요!" : "반영할게요.";
-}
-function sendCorr(btn) {
-  const bar = btn.closest(".fb");
-  const corr = bar.querySelector(".corr").value.trim();
-  postFb(bar.dataset.q, bar.dataset.a, "down", corr);
-  bar.querySelector(".fbmsg").textContent = corr ? "정정 저장됨 — 다음에 반영됩니다." : "반영할게요.";
-}
-
-loadSummary();
-recommend();
 </script>
 </body>
 </html>
