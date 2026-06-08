@@ -20,6 +20,22 @@
 | 실행 환경 | CPU 전용 (torch CPU 휠 + 로컬 LLM) |
 | 성과 | ABSA F1 0.93(gold 101), 추천 블렌딩 Recall@10 0.31(>popularity 0.19), 속성 학습(NIKL ACD micro-F1 0.66) |
 
+> ⚠️ **데이터 규모(정직)**: ABSA 평가는 **데모 데이터셋(15상품·55리뷰·gold 101, 단일 라벨러)** 기준입니다. 절대 수치의 통계적 일반화보다 **방법 간 상대 비교와 파이프라인 검증**이 목적이에요. 추천은 실로그가 없어 **합성 시뮬레이션 데이터**로 평가했습니다(데이터 로더만 교체하면 실데이터 확장). 감성 분류기 학습만 **네이버쇼핑 200k 실데이터**입니다.
+
+---
+
+## 데모 화면
+
+**분석 대시보드** (`/dashboard`) — 속성 감성·개선 이슈·전략 카드를 **실데이터로 실시간 산출**:
+
+![분석 대시보드](reviewlens/docs/img/dashboard.png)
+
+| 랜딩 (`/`) | CS 챗봇 (`/cs`) |
+|---|---|
+| ![랜딩](reviewlens/docs/img/index.png) | ![CS 챗봇](reviewlens/docs/img/cs.png) |
+
+> 대시보드의 모든 수치(긍정률 70.3%·속성 점수·기회 맵·Top 이슈·전략 카드)는 데모 데이터셋(15상품·55리뷰)에서 `/api/board`로 **실시간 집계**됩니다 — 하드코딩 목업이 아닙니다.
+
 ---
 
 ## 시스템 아키텍처 (데이터 흐름)
@@ -58,6 +74,19 @@ CPU 로컬 LLM은 신규 질문에 수~십수 초가 걸리므로, **실시간 �
 - **답변 캐시 + FAQ 프리워밍**: 완전일치(dict)·의미유사(임베딩) 캐시로 반복/유사 질문 즉시 응답, 자주 묻는 질문은 서버 시작 시 백그라운드로 미리 데움.
 - **모델 분리**: 라이브 챗봇 = 빠른 `gemma3:4b`, 오프라인 요약 = 고품질 `gemma4:12b`(thinking off로 한국어 보장), ABSA = `qwen2.5:3b`. 자유서술형(상품·속성 미특정) 질문만 실시간 LLM 사용.
 - **백엔드 교체 가능**: 기본 Ollama, `RL_BACKEND=llamacpp`로 `llama-server` 직접 호출도 지원(둘 다 내부 엔진은 llama.cpp).
+
+#### 챗봇 행동 평가 (`chat_eval.py`)
+RAG 챗봇은 정답 텍스트가 하나가 아니라, **'지켜야 할 행동'을 라벨로 두고 측정** (12개 시나리오, 모드별 기준).
+
+| 지표 | 결과 | 의미 |
+|---|---|---|
+| 라우팅 정확도 | **12/12 (100%)** | 질문 의도를 올바른 모드(집계/추천/특정상품)로 분기 |
+| 집계 오답상품 회피율 | **4/4 (100%)** | 일반 질문에 엉뚱한 특정 상품을 단정하지 않음 (← *실제 발생했던 버그를 평가로 고정*) |
+| 추천 상품 제시율 | **2/2 (100%)** | 추천 의도에 실제 상품 제시 |
+| 특정상품 근거 충실 | **6/6 (100%)** | 질문이 지목한 상품을 실제로 다룸 |
+| 평균 지연(정상상태) | **0.20s** | 사전계산·캐시로 즉답(콜드스타트 분리 측정) |
+
+→ 기능을 추가만 하지 않고 **행동을 측정해 회귀를 막는다.** '오답상품 회피'는 한때 *"포장 어때?"에 엉뚱한 상품을 답하던 버그*를 라벨로 박아 재발을 검출.
 
 | 질문 (정답 리뷰와 단어 안 겹침) | 키워드 검색 top1 | 의미검색 top1 |
 |---|---|---|
@@ -165,6 +194,7 @@ python retriever.py       # 키워드 vs 의미검색(ko-sroberta+FAISS) 비교 
 python sentiment_finetune.py  # 네이버쇼핑 200k로 감성 분류기 학습(linear probing)+평가
 python absa_nikl_train.py     # 국립국어원 ABSA로 속성 카테고리 탐지(ACD) 학습 (json/ 필요)
 python chatbot.py         # 의미검색 RAG Q&A (LLM 없으면 근거만 반환)
+python chat_eval.py       # 챗봇 행동 평가 (라우팅·오답상품 회피·근거 충실·지연)
 python -m uvicorn app:app # 웹 UI (localhost:8000)
 ```
 
@@ -186,9 +216,10 @@ reviewlens/
 ├─ sentiment_finetune.py  네이버쇼핑 200k 감성 분류기 학습 (linear probing, phase 2)
 ├─ absa_nikl.py    국립국어원 ABSA 말뭉치 로더 (쇼핑 도메인)
 ├─ absa_nikl_train.py  속성 카테고리 탐지(ACD) 학습·평가 (linear probing)
-├─ chatbot.py      의미검색 RAG + 자기검증 + 교정 메모리 + 스트리밍
-├─ eval.py         gold 대비 F1 측정 (python eval.py [llm])
-├─ app.py          FastAPI 웹 UI/API
+├─ chatbot.py      의미검색 RAG + 의도 라우팅 + 사전계산/캐시 + 교정 메모리
+├─ eval.py         gold 대비 ABSA F1 측정 (python eval.py [llm])
+├─ chat_eval.py    챗봇 행동 평가 (라우팅·환각 회피·근거·지연)
+├─ app.py          FastAPI 웹 UI/API (+ /api/board 대시보드 실집계)
 ├─ dashboard.html  대시보드 프런트엔드
 ├─ data/           reviews.csv(샘플), gold.csv(정답)
 └─ docs/           기획서.md

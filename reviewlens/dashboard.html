@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="ko">
-<!-- 껍데기. 탭 내용은 tabs/<name>.html 을 fetch로 불러와 #wrap에 주입. 서버는 정적 파일만(StaticFiles) -->
+<!-- 껍데기. 탭 내용은 tabs/<name>.html(스켈레톤)을 fetch로 주입하고, /api/board 실데이터로 JS가 렌더 -->
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ReviewLens — 전략 보드</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-<link rel="stylesheet" href="/static/dashboard.css?v=8">
+<link rel="stylesheet" href="/static/dashboard.css?v=9">
 </head>
 <body>
 <div class="app">
@@ -28,15 +28,15 @@
     </nav>
     <div class="grow"></div>
     <div class="ucard"><span class="av">M</span><span><small>마케팅팀</small><b>Marketing Team</b></span><span class="ch"><i data-lucide="chevron-down"></i></span></div>
-    <div class="period">데이터 기간<b>2025.05.12 ~ 2025.05.18</b>비교 기간<b>2025.05.05 ~ 2025.05.11</b></div>
+    <div class="period">데이터셋<b id="ds-period">데모 · 로딩중…</b>분석 엔진<b>ABSA + 감성 분류기</b></div>
     <div class="dlbtn"><i data-lucide="download"></i> 보고서 다운로드 <i data-lucide="arrow-right"></i></div>
   </aside>
 
   <div class="main">
     <header class="top">
-      <div class="pill"><i data-lucide="calendar-days"></i> 2025.05.12 ~ 2025.05.18 (최근 7일)</div>
+      <div class="pill"><i data-lucide="database"></i> <span id="top-ds">데모 데이터셋</span></div>
       <div class="pill">카테고리 전체 <i data-lucide="chevron-down"></i></div><div class="grow"></div>
-      <div class="bell"><i data-lucide="bell"></i><span class="b">8</span></div>
+      <div class="bell"><i data-lucide="bell"></i><span class="b" id="top-bell">·</span></div>
       <button class="share"><i data-lucide="share-2"></i> 인사이트 요약 공유</button>
     </header>
     <div class="wrap" id="wrap"></div>
@@ -46,37 +46,169 @@
 <script src="https://unpkg.com/lucide@latest"></script>
 <script>
 const nav=document.getElementById('nav'), wrap=document.getElementById('wrap'), cache={};
+let BOARD=null;
+async function getBoard(){ if(!BOARD){ try{ BOARD=await fetch('/api/board',{cache:'no-store'}).then(r=>r.json()); }catch(e){ BOARD={}; } } return BOARD; }
 
-// 탭 partial 로드 (한 번 받은 건 캐시)
+// --- 공통 렌더 헬퍼 ---
+const E=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const colr=s=>s>=80?'#1fbf8f':s>=60?'#f5a623':'#ef5878';
+const bar=(nm,v,suf,w)=>`<div class="arow"><span class="nm" style="width:${w||88}px">${E(nm)}</span><span class="tr"><i style="width:${Math.max(v,3)}%;background:${colr(v)}"></i></span><span class="sc">${v}${suf||''}</span></div>`;
+const emo=s=>s>=80?'<i data-lucide="smile" style="color:#1fbf8f"></i>':s>=60?'<i data-lucide="meh" style="color:#f5a623"></i>':'<i data-lucide="frown" style="color:#ef5878"></i>';
+const RK='width:18px;height:18px;border-radius:50%;background:#fdecef;color:#ef4f6d;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none';
+// 속성→전략 카드 문구
+const TIPS={CS:['고객 응대 개선','문의·교환 응대 부정이 우세 — 대응 프로세스 점검이 시급합니다.','headphones'],
+  품질:['품질 이슈 관리','부정의 다수가 품질 — 마감·내구성 점검으로 만족도 개선.','wrench'],
+  가격:['가격 가치 소구','가격 불만 — 가성비 메시지로 체감 가치를 높이세요.','tag'],
+  포장:['포장 강화','포장 파손 불만 — 완충재 보강을 검토하세요.','package'],
+  배송:['배송 강점 유지','배송 만족이 높음 — 핵심 셀링포인트로 강조.','truck'],
+  디자인:['디자인 강점 활용','디자인 만족이 최고 — 상세페이지 전면 배치.','sparkles']};
+
+// --- 탭별 렌더(전부 /api/board 실데이터) ---
+const R={};
+R.strategy=b=>{
+  const k=b.kpi,a=b.aspects,cats=b.categories,iss=b.issues,q=b.quotes;
+  const dash=Math.round(k.pos_ratio/100*339);
+  const aspectRows=a.map(x=>`<div class="arow"><span class="em">${emo(x.score)}</span><span class="nm">${x.name}</span><span class="tr"><i style="width:${Math.max(x.score,3)}%;background:${colr(x.score)}"></i></span><span class="sc">${x.score}</span><span class="dl ${x.score>=60?'pos':'neg'}">${x.pos}/${x.neg}</span></div>`).join('');
+  const maxv=Math.max(...cats.map(c=>c.vol)), pal={전자:['#bcd6f5','#3a78c8'],주방:['#bfe9d7','#1a9c79'],패션:['#f6c0cb','#d23a5a'],생활:['#f7dcae','#c8870f'],리빙:['#c7ecdd','#1a9c79'],스포츠:['#f7cdb8','#cf6a3c']};
+  const bub=cats.map(c=>{const x=70+Math.min(Math.max((c.score-55)/40,0),1)*330,y=235-(c.vol/maxv)*185,r=16+(c.vol/maxv)*24,co=pal[c.name]||['#dde','#889'];return `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${r.toFixed(0)}" fill="${co[0]}"/><text x="${x.toFixed(0)}" y="${(y+4).toFixed(0)}" font-size="12" fill="${co[1]}" text-anchor="middle">${c.name}</text>`;}).join('');
+  const issRows=iss.map((x,i)=>`<div class="issue"><span class="rk">${i+1}</span><span class="tx"><b>${E(x.sample||x.aspect+' 관련 불만')}</b><span>${x.aspect}</span></span><span class="pc">${x.count}건</span></div>`).join('');
+  const cc=['c1','c2','c3'],tg=[['t1','우선 실행'],['t2','개선 기회'],['t3','유지 강화']];
+  const cards=iss.slice(0,3).map((x,i)=>{const t=TIPS[x.aspect]||[x.aspect,'개선 검토','info'];return `<div class="scard ${cc[i]}"><div class="ic"><i data-lucide="${t[2]}"></i></div><span class="tag ${tg[i][0]}">${tg[i][1]}</span><h4>${t[0]}</h4><p>${t[1]}</p><span class="go">상세 전략 <i data-lucide="arrow-right"></i></span></div>`;}).join('');
+  const qh=[...q.pos.slice(0,2).map(x=>`<div class="quote g"><span class="em"><i data-lucide="smile" style="color:#1fbf8f"></i></span><div>"${E(x.text)}"<div class="meta">— ${x.meta}</div></div></div>`),...q.neg.slice(0,1).map(x=>`<div class="quote n"><span class="em"><i data-lucide="frown" style="color:#ef5878"></i></span><div>"${E(x.text)}"<div class="meta">— ${x.meta}</div></div></div>`)].join('');
+  document.getElementById('tab-strategy').innerHTML=`
+  <section class="hero">
+    <div class="label">REVIEW INSIGHT</div>
+    <h1>리뷰가 가리키는<br>개선 우선순위가 보입니다.</h1>
+    <p>${a[0].name}·${a[1].name} 만족도가 높고(${a[0].score}점), <b>${a[a.length-1].name}·${iss[0].aspect}</b> 개선 여지가 큽니다.<br>전체 긍정 응답률은 ${k.pos_ratio}% 입니다.</p>
+    <div class="ring"><span class="t">긍정 응답률</span><span class="v">${k.pos_ratio}%</span><span class="d">긍정 ${k.pos} / 전체 ${k.labels}</span></div>
+  </section>
+  <section class="row r3" style="align-items:start">
+    <div class="panel"><div class="phead"><h3>속성 감성 스냅샷</h3><span class="i"><i data-lucide="info"></i></span></div>
+      <div class="snap"><div style="display:flex;flex-direction:column;align-items:center;gap:9px;flex:none"><div class="gauge"><svg width="100%" height="100%" viewBox="0 0 128 128"><circle cx="64" cy="64" r="54" fill="none" stroke="#f0f1f4" stroke-width="13"/><circle cx="64" cy="64" r="54" fill="none" stroke="url(#g)" stroke-width="13" stroke-linecap="round" stroke-dasharray="${dash} 339" transform="rotate(-90 64 64)"/><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1fbf8f"/><stop offset="1" stop-color="#f5566f"/></linearGradient></defs></svg><div class="ctr"><span class="v">${k.pos_ratio}<small>%</small></span><span class="s">긍정률</span></div></div></div>
+      <div class="alist">${aspectRows}</div></div>
+    </div>
+    <div class="panel"><div class="phead"><h3>카테고리 기회 맵</h3><span class="more" style="border:0">● 버블 크기 = 리뷰 감성 수</span></div>
+      <svg class="oppmap" viewBox="0 0 440 300"><line x1="55" y1="20" x2="55" y2="255" stroke="#e6e8ec"/><line x1="55" y1="255" x2="420" y2="255" stroke="#e6e8ec"/><text x="14" y="32" font-size="11" fill="#aab">많음</text><text x="14" y="250" font-size="11" fill="#aab">적음</text><text transform="rotate(-90 16 150)" x="16" y="150" font-size="11" fill="#9aa0ac">리뷰 감성량</text><text x="60" y="278" font-size="11" fill="#aab">낮음</text><text x="392" y="278" font-size="11" fill="#aab">높음</text><text x="208" y="278" font-size="11" fill="#9aa0ac">긍정률</text><g opacity=".88">${bub}</g></svg>
+    </div>
+    <div class="panel"><div class="phead"><h3>Top 개선 이슈</h3></div><div class="issues">${issRows}</div></div>
+  </section>
+  <section class="row r2">
+    <div class="panel"><div class="phead"><h3>추천 전략 카드</h3></div><div class="scards">${cards}</div></div>
+    <div class="panel"><div class="phead"><h3>리뷰 인용 <span style="font-weight:500;color:#aab">(고객 목소리)</span></h3></div>${qh}</div>
+  </section>
+  <div class="foot">* 모든 수치는 데모 데이터셋(${k.items}상품·${k.reviews}리뷰·${k.labels} 감성라벨)에서 실시간 산출됩니다.</div>`;
+};
+R.review=b=>{
+  const k=b.kpi,a=b.aspects,q=b.quotes;
+  const posr=k.pos_ratio,negr=Math.round(100-posr);
+  const dist=`<div class="alist"><div class="arow"><span class="nm">긍정</span><span class="tr"><i style="width:${posr}%;background:#1fbf8f"></i></span><span class="sc pos">${posr}%</span></div><div class="arow"><span class="nm">부정</span><span class="tr"><i style="width:${negr}%;background:#ef5878"></i></span><span class="sc neg">${negr}%</span></div></div>`;
+  const bm=[...a].sort((x,y)=>(y.pos+y.neg)-(x.pos+x.neg)),mm=bm[0].pos+bm[0].neg;
+  const kw=bm.map(x=>{const m=x.pos+x.neg;return `<div class="arow"><span class="nm">${x.name}</span><span class="tr"><i style="width:${Math.round(m/mm*100)}%;background:${colr(x.score)}"></i></span><span class="sc">${m}건</span></div>`;}).join('');
+  const revs=[...q.pos.slice(0,2).map(x=>`<div class="quote g"><span class="em"><i data-lucide="smile" style="color:#1fbf8f"></i></span><div>"${E(x.text)}"<div class="meta">${x.meta}</div></div></div>`),...q.neg.slice(0,2).map(x=>`<div class="quote n"><span class="em"><i data-lucide="frown" style="color:#ef5878"></i></span><div>"${E(x.text)}"<div class="meta">${x.meta}</div></div></div>`)].join('');
+  document.getElementById('tab-review').innerHTML=`
+  <div class="panel"><div class="phead"><h3>감성 분포</h3></div>${dist}</div>
+  <div class="panel"><div class="phead"><h3>속성별 언급량</h3></div><div class="alist">${kw}</div></div>
+  <div class="panel"><div class="phead"><h3>대표 리뷰</h3></div>${revs}</div>`;
+};
+R.product=b=>{
+  const rows=b.products.map((x,i)=>`<div class="arow"><span class="rk" style="${RK}">${i+1}</span><span class="nm" style="width:140px">${E(x.name)}</span><span class="tr"><i style="width:${Math.max(x.score,3)}%;background:${colr(x.score)}"></i></span><span class="sc">${x.score}점</span></div>`).join('');
+  const cavg=b.cat_avg.map(x=>bar(x.name,x.score,'점')).join('');
+  document.getElementById('tab-product').innerHTML=`
+  <div class="row" style="grid-template-columns:1.5fr 1fr;align-items:start">
+    <div class="panel"><div class="phead"><h3>상품별 만족도</h3><span class="more">${b.products.length}개 상품</span></div><div class="alist">${rows}</div></div>
+    <div class="panel"><div class="phead"><h3>카테고리 평균</h3></div><div class="alist">${cavg}</div></div>
+  </div>`;
+};
+R.customer=b=>{
+  const a=b.aspects,tot=a.reduce((s,x)=>s+x.pos+x.neg,0);
+  const interest=[...a].sort((x,y)=>(y.pos+y.neg)-(x.pos+x.neg)).map(x=>bar(x.name,Math.round((x.pos+x.neg)/tot*100),'%')).join('');
+  const split=a.map(x=>`<div class="arow"><span class="nm">${x.name}</span><span class="tr"><i style="width:${Math.max(x.score,3)}%;background:${colr(x.score)}"></i></span><span class="sc ${x.score>=60?'pos':'neg'}">${x.score}%</span></div>`).join('');
+  document.getElementById('tab-customer').innerHTML=`
+  <div class="row r2">
+    <div class="panel"><div class="phead"><h3>고객 관심 속성 (언급 비중)</h3></div><div class="alist">${interest}</div></div>
+    <div class="panel"><div class="phead"><h3>속성별 만족도</h3></div><div class="alist">${split}</div></div>
+  </div>
+  <div class="foot">* 연령·성별 등 인구통계는 데모 데이터에 없어, 리뷰에서 실제 산출 가능한 '관심 속성'으로 대체했습니다.</div>`;
+};
+R.rival=b=>{
+  const a=b.aspects,base=Math.round(b.kpi.pos_ratio);
+  const rows=a.map(x=>{const d=x.score-base,cls=d>0?'pos':d<0?'neg':'neu';return `<div class="arow"><span class="nm">${x.name}</span><span class="tr"><i style="width:${Math.max(x.score,3)}%;background:${colr(x.score)}"></i></span><span class="sc ${cls}">${x.score} vs ${base}</span></div>`;}).join('');
+  const up=a.filter(x=>x.score>base).length,dn=a.filter(x=>x.score<base).length;
+  document.getElementById('tab-rival').innerHTML=`
+  <div class="row" style="grid-template-columns:1.5fr 1fr;align-items:start">
+    <div class="panel"><div class="phead"><h3>속성별 벤치마크</h3><span class="more" style="border:0">속성 점수 vs 전체 평균(${base})</span></div><div class="alist">${rows}</div></div>
+    <div class="panel"><div class="phead"><h3>종합</h3></div><div class="alist">
+      <div class="arow"><span class="nm" style="width:auto">평균 상회</span><span class="tr" style="background:none"></span><span class="sc pos" style="width:auto;font-size:20px">${up}개</span></div>
+      <div class="arow"><span class="nm" style="width:auto">평균 하회</span><span class="tr" style="background:none"></span><span class="sc neg" style="width:auto;font-size:20px">${dn}개</span></div>
+      <p style="font-size:13px;color:#6c7280;line-height:1.6;margin-top:8px;border-top:1px solid var(--line);padding-top:12px">* 외부 경쟁사 데이터가 없어, 자사 속성을 <b>전체 평균 대비</b> 벤치마크로 표시합니다(데모).</p>
+    </div></div>
+  </div>`;
+};
+R.market=b=>{
+  const iss=b.issues,a=b.aspects,cc=['c1','c2','c3'],tg=[['t1','우선 실행'],['t2','개선 기회'],['t3','유지 강화']];
+  const cards=iss.slice(0,3).map((x,i)=>{const t=TIPS[x.aspect]||[x.aspect,'개선 검토','info'];return `<div class="scard ${cc[i]}"><div class="ic"><i data-lucide="${t[2]}"></i></div><span class="tag ${tg[i][0]}">${tg[i][1]}</span><h4>${t[0]}</h4><p>${t[1]} (부정 ${x.count}건)</p><span class="go">실행하기 <i data-lucide="arrow-right"></i></span></div>`;}).join('');
+  const strong=a.slice(0,3).map(x=>bar(x.name,x.score,'점')).join('');
+  const pri=iss.slice(0,4).map((x,i)=>`<div class="issue"><span class="rk">${i+1}</span><span class="tx"><b>${x.aspect}</b><span>부정 ${x.count}건</span></span></div>`).join('');
+  document.getElementById('tab-market').innerHTML=`
+  <div class="panel"><div class="phead"><h3>추천 전략 (부정 이슈 기반)</h3></div><div class="scards">${cards}</div></div>
+  <div class="row r2">
+    <div class="panel"><div class="phead"><h3>강점 속성 (셀링포인트)</h3></div><div class="alist">${strong}</div></div>
+    <div class="panel"><div class="phead"><h3>개선 우선순위</h3></div><div class="issues">${pri}</div></div>
+  </div>`;
+};
+R.alert=b=>{
+  const a=b.aspects,iss=b.issues,al=[];
+  a.filter(x=>x.score<=40).forEach(x=>al.push(['!','#fdecef','',`'${x.name}' 부정 우세`,`${x.name} · 긍정률 ${x.score}%`,'neg',`부정 ${x.neg}건`]));
+  a.filter(x=>x.score>=85).forEach(x=>al.push(['✓','#eafaf4','#1a9c79',`'${x.name}' 만족도 우수`,`${x.name} · 긍정률 ${x.score}%`,'pos',`긍정 ${x.pos}건`]));
+  al.push(['i','#fff5e3','#d98a13',`최다 부정 속성: ${iss[0].aspect}`,`${iss[0].aspect} · 부정 ${iss[0].count}건`,'','정보']);
+  const rows=al.map(x=>`<div class="issue"><span class="rk" style="background:${x[1]}${x[2]?';color:'+x[2]:''}">${x[0]}</span><span class="tx"><b>${E(x[3])}</b><span>${E(x[4])}</span></span><span class="dl ${x[5]}">${x[6]}</span></div>`).join('');
+  const warn=al.filter(x=>x[5]==='neg').length,good=al.filter(x=>x[5]==='pos').length;
+  document.getElementById('tab-alert').innerHTML=`
+  <div class="row" style="grid-template-columns:1.6fr 1fr;align-items:start">
+    <div class="panel"><div class="phead"><h3>속성 알림</h3></div><div class="issues">${rows}</div></div>
+    <div class="panel"><div class="phead"><h3>요약</h3></div><div class="alist">
+      <div class="arow"><span class="nm" style="width:auto">주의 필요</span><span class="tr" style="background:none"></span><span class="sc neg" style="width:auto;font-size:20px">${warn}건</span></div>
+      <div class="arow"><span class="nm" style="width:auto">우수</span><span class="tr" style="background:none"></span><span class="sc pos" style="width:auto;font-size:20px">${good}건</span></div>
+    </div></div>
+  </div>`;
+};
+R.data=b=>{
+  const k=b.kpi;
+  document.getElementById('tab-data').innerHTML=`
+  <div class="row" style="grid-template-columns:1.6fr 1fr;align-items:start">
+    <div class="panel"><div class="phead"><h3>데이터 소스</h3></div><div class="issues">
+      <div class="issue"><span class="tx"><b><span class="dot" style="background:#1fbf8f"></span>데모 리뷰셋 (data/reviews.csv)</b><span>${k.items}개 상품 · ${k.reviews}개 리뷰</span></span><span class="pc pos">로드됨</span></div>
+      <div class="issue"><span class="tx"><b><span class="dot" style="background:#1fbf8f"></span>네이버쇼핑 200k</b><span>감성 분류기 학습(linear probing)</span></span><span class="pc pos">학습완료</span></div>
+      <div class="issue"><span class="tx"><b><span class="dot" style="background:#f5a623"></span>국립국어원 ABSA 말뭉치</b><span>라이선스 · 로컬 전용</span></span><span class="pc neu">비공개</span></div>
+    </div></div>
+    <div class="panel"><div class="phead"><h3>수집 현황</h3></div><div class="alist">
+      <div class="arow"><span class="nm" style="width:auto">상품</span><span class="tr" style="background:none"></span><span class="sc" style="width:auto;font-size:20px">${k.items}</span></div>
+      <div class="arow"><span class="nm" style="width:auto">리뷰</span><span class="tr" style="background:none"></span><span class="sc" style="width:auto;font-size:20px">${k.reviews}</span></div>
+      <div class="arow"><span class="nm" style="width:auto">감성 라벨</span><span class="tr" style="background:none"></span><span class="sc pos" style="width:auto;font-size:20px">${k.labels}</span></div>
+    </div></div>
+  </div>`;
+};
+
+// 탭 로드: 스켈레톤 주입 → 실데이터 렌더 → 아이콘
 async function load(v){
   try{ if(!cache[v]) cache[v]=await fetch('/tabs/'+v+'.html',{cache:'no-store'}).then(r=>r.text()); wrap.innerHTML=cache[v]; }
   catch(e){ wrap.innerHTML='<div class="panel">탭을 불러오지 못했어요. (서버로 띄워야 합니다)</div>'; }
-  if(window.lucide) lucide.createIcons();   // 사이드바 + 주입된 탭 아이콘 렌더
+  if(R[v]){ const b=await getBoard(); try{ R[v](b); }catch(e){ console.error(e); } }
+  if(window.lucide) lucide.createIcons();
   window.scrollTo(0,0);
 }
 nav.addEventListener('click',e=>{const a=e.target.closest('a[data-v]');if(!a)return;
   nav.querySelectorAll('a').forEach(x=>x.classList.toggle('on',x===a)); load(a.dataset.v);});
-load('strategy');
 
-// AI Q&A — 실제 챗봇(/api/chat/stream). 전역 함수(탭의 inline onclick에서 호출)
-const esc=s=>(s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
-async function ask(){
-  const box=document.getElementById('chatbox'),inp=document.getElementById('q'),btn=document.getElementById('send');
-  const q=inp.value.trim();if(!q)return;inp.value="";btn.disabled=inp.disabled=true;
-  box.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div>`);
-  const a=document.createElement('div');a.className='msg a';a.innerHTML='<span class="ab"></span><div>…</div>';
-  box.appendChild(a);const body=a.querySelector('div');box.scrollTop=box.scrollHeight;
-  let ans="",ev="",st=false;
-  try{const res=await fetch('/api/chat/stream',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q})});
-    const rd=res.body.getReader(),dec=new TextDecoder();let buf="";
-    while(true){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let nl;
-      while((nl=buf.indexOf("\n"))>=0){const line=buf.slice(0,nl).trim();buf=buf.slice(nl+1);if(!line)continue;const o=JSON.parse(line);
-        if(o.token){if(!st){body.textContent="";st=true;}ans+=o.token;body.textContent=ans;box.scrollTop=box.scrollHeight;}
-        if(o.replace!==undefined){ans=o.replace;body.textContent=ans;}if(o.evidence!==undefined)ev=o.evidence;}}
-  }catch(e){body.textContent="응답을 받지 못했어요. (서버/Ollama 확인)";}
-  if(ev){const d=document.createElement('div');d.className='ev';d.innerHTML=ev.split("\n").map(esc).join("<br>");body.appendChild(d);}
-  btn.disabled=inp.disabled=false;inp.focus();box.scrollTop=box.scrollHeight;
-}
+// 사이드바·상단바 실데이터 채우기
+getBoard().then(b=>{ if(!b.kpi)return; const k=b.kpi;
+  const t=`${k.items}상품 · ${k.reviews}리뷰`;
+  document.getElementById('ds-period').textContent=t;
+  document.getElementById('top-ds').textContent='데모 데이터셋 · '+t;
+  let warn=b.aspects.filter(x=>x.score<=40).length;
+  document.getElementById('top-bell').textContent=warn||'·';
+});
+load('strategy');
 </script>
 </body>
 </html>
