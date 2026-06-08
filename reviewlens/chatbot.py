@@ -72,9 +72,11 @@ def _aggregate(d, asps):
 def _recommend_answer(recs):
     if not recs:
         return "추천할 만한 상품을 아직 찾지 못했어요."
+    def lvl(p):  # 긍정 비율 → 정성 표현 (인위적인 % 대신)
+        return "매우 높음" if p >= 0.85 else "높음" if p >= 0.6 else "보통"
     parts = []
     for _, n, why in recs[:2]:
-        rs = ", ".join(f"{a} {int(p*100)}%" for a, p in why[:2])
+        rs = ", ".join(f"{a} 만족도 {lvl(p)}" for a, p in why[:2])
         parts.append(f"{n}({rs})" if rs else n)
     return "리뷰 분석 결과, 추천 상품은 " + ", ".join(parts) + " 입니다."
 
@@ -185,18 +187,18 @@ def _has_hanja(s):  # 코드포인트로 판정 (리터럴 범위는 한글 AC00
     return any(0x3400 <= ord(c) <= 0x9fff or 0xf900 <= ord(c) <= 0xfaff for c in s)
 
 
+# 제품 약어·단위는 한국어 문장에 섞여도 정상 (LED 스탠드, 500ml 등)
+_OK_EN = {"CS", "LED", "OLED", "QLED", "USB", "TV", "PC", "AS", "IT",
+          "GB", "MB", "TB", "ML", "L", "KG", "G", "CM", "MM", "W", "V", "HZ"}
+
+
 def _bad_lang(s):
     if _has_hanja(s):
         return True
     for tok in s.split():
-        if not re.search(r"[A-Za-z]", tok):
-            continue
-        if re.search(r"[가-힣]", tok):              # 한글+영어 혼합 단어 (괜shaw)
-            return True
-        bare = tok.strip(".,!?()[]\"'·").upper()
-        if bare == "CS" or re.search(r"\d", tok):    # 허용: CS, 500ml 등
-            continue
-        return True                                  # 그 외 순수 영어 단어
+        for en in re.findall(r"[A-Za-z]+", tok):     # 토큰 속 라틴 덩어리만 검사(한글 조사·숫자 무시)
+            if en.upper() not in _OK_EN:             # 허용 약어/단위 외 영어 → 비정상(영어 누출·깨짐)
+                return True
     return False
 
 

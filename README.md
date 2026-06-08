@@ -16,7 +16,7 @@
 |---|---|
 | 한 줄 소개 | 리뷰 감성을 추천·챗봇의 근거로 재사용하는 통합 리뷰 분석 플랫폼 |
 | 핵심 기술 | ABSA(속성별 감성 분석), 협업필터링+감성 하이브리드 추천, 의미검색 RAG 챗봇 |
-| 스택 | Python, FastAPI, SQLite, KoELECTRA, Ollama(gemma3:4b 챗봇·qwen2.5:3b ABSA), implicit(ALS), ko-sroberta+FAISS |
+| 스택 | Python, FastAPI, SQLite, KoELECTRA, Ollama(gemma3:4b 챗봇·gemma4:12b 요약·qwen2.5:3b ABSA), implicit(ALS), ko-sroberta+FAISS |
 | 실행 환경 | CPU 전용 (torch CPU 휠 + 로컬 LLM) |
 | 성과 | ABSA F1 0.93(gold 101), 추천 블렌딩 Recall@10 0.31(>popularity 0.19), 속성 학습(NIKL ACD micro-F1 0.66) |
 
@@ -50,6 +50,14 @@
 - **교정 메모리**: 사용자 👍/👎·정정을 저장하고, 다음에 **의미가 비슷한 질문**이 오면 그 정정을 근거보다 우선 주입 → *모델 재학습 없이* 대화로 즉시 개선 (모델 가중치를 안 건드려 catastrophic forgetting 없음)
 - **한국어 보정**: 한자·코드스위칭 감지 시 삭제가 아니라 재생성으로 문법 보존
 - **graceful fallback**: 의미검색은 LLM 없이도 동작 → Ollama 미가동 시에도 근거 리뷰를 반환
+
+#### 응답 최적화 (CPU에서 즉답 서빙)
+CPU 로컬 LLM은 신규 질문에 수~십수 초가 걸리므로, **실시간 경로에서 LLM 호출 자체를 최대한 제거**했습니다.
+- **의도 라우팅**: 질문을 분기 — *집계*("배송 어때?")·*추천*("가성비 추천")은 DB 집계/추천 결과를 **자연어 템플릿으로 즉답**(LLM 생략), *특정 상품*("○○ 어때?")은 **빌드 시 미리 생성한 상품 요약**으로 즉답.
+- **상품 요약 사전계산**: 오프라인(빌드 시)에 상품별 자연어 요약을 `gemma4:12b`로 생성·저장 → 질의 시점 LLM 비용을 빌드 시점으로 이동. 품질 손실 없이 특정 상품 질문도 **<0.2초**.
+- **답변 캐시 + FAQ 프리워밍**: 완전일치(dict)·의미유사(임베딩) 캐시로 반복/유사 질문 즉시 응답, 자주 묻는 질문은 서버 시작 시 백그라운드로 미리 데움.
+- **모델 분리**: 라이브 챗봇 = 빠른 `gemma3:4b`, 오프라인 요약 = 고품질 `gemma4:12b`(thinking off로 한국어 보장), ABSA = `qwen2.5:3b`. 자유서술형(상품·속성 미특정) 질문만 실시간 LLM 사용.
+- **백엔드 교체 가능**: 기본 Ollama, `RL_BACKEND=llamacpp`로 `llama-server` 직접 호출도 지원(둘 다 내부 엔진은 llama.cpp).
 
 | 질문 (정답 리뷰와 단어 안 겹침) | 키워드 검색 top1 | 의미검색 top1 |
 |---|---|---|
@@ -141,11 +149,13 @@ gold은 *평가용*이라 학습엔 부족 → **네이버쇼핑 리뷰 200k**(�
 ## 실행
 
 ```bash
+python -m venv .venv && .venv\Scripts\activate   # (권장) 가상환경
 cd reviewlens
 pip install -r requirements.txt          # torch는 CPU 휠
-# Ollama 설치 후 — LLM ABSA용 qwen2.5:3b, 챗봇/요약용 gemma3:4b
+# Ollama 설치 후 — ABSA: qwen2.5:3b, 라이브 챗봇: gemma3:4b, 오프라인 요약: gemma4:12b
 ollama pull qwen2.5:3b
 ollama pull gemma3:4b
+ollama pull gemma4:12b
 
 python pipeline.py [llm|clf|rule]  # 리뷰 → 감성 저장소 (분석기 선택, 기본 llm)
 python eval.py            # ABSA 3-way F1 비교 (규칙/LLM/학습분류기)
