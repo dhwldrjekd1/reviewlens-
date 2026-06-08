@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import os, json, db, recommend, chatbot
+import os, json, threading, db, recommend, chatbot
 
 app = FastAPI()
 d = db.get_db()
@@ -71,3 +71,18 @@ class FB(BaseModel):
 def feedback(body: FB):
     chatbot.record_feedback(d, body.q, body.answer, body.vote, body.correction)
     return {"ok": True}
+
+
+# 자주 묻는 질문(빠른칩)을 시작 시 백그라운드로 미리 생성 → 캐시 적재 → 첫 클릭부터 즉시 응답
+_WARMUP = ["배송 빠른 편인가요?", "이어폰 소리 어때요?", "포장 상태 괜찮나요?", "가성비 좋은 거 추천해줘"]
+
+def _prewarm():
+    wd = db.get_db()                      # 워밍 전용 커넥션(스레드 안전)
+    for q in _WARMUP:
+        try:
+            for _ in chatbot.ask_stream(wd, q):
+                pass
+        except Exception:
+            pass
+
+threading.Thread(target=_prewarm, daemon=True).start()

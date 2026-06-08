@@ -1,5 +1,5 @@
 import csv, os, sys
-import db, absa_llm  # 기본 LLM ABSA. 다른 분석기는 CLI 인자로 선택
+import db, absa_llm, chatbot  # 기본 LLM ABSA + 상품 요약 사전계산(chatbot 재사용)
 
 items = {
     "P1": ("아쿠아 무선이어폰", "전자"),
@@ -43,6 +43,13 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
     print("-" * 32)
     for name, aspect, pos, neg in db.summary(d):
         print(f"{name:<16}{aspect:<6}{pos:>4}{neg:>4}")
+
+    print("\n[상품 요약 사전계산 중...]")
+    try:
+        n = chatbot.build_product_summaries(d)
+        print(f"[상품 요약 {n}건 생성 완료]")
+    except Exception as e:
+        print(f"[상품 요약 생략: {e}]")   # Ollama 미가동 등 — ABSA 결과는 보존
 
 if __name__ == "__main__":
     # python pipeline.py [llm|clf|rule]  (기본 llm)
