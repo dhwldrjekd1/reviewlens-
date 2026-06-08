@@ -6,6 +6,7 @@ ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"]
 MODEL = "gemma3:4b"          # 라이브 챗봇(빠름). 한국어 품질 우수, 답변 캐시·사전계산으로 즉답
 SUMMARY_MODEL = "gemma4:12b"  # 오프라인 상품요약 전용(품질 최상). 12B라 느리지만 빌드 1회뿐 → 라이브 무영향
 _THINKING = ("gemma4", "qwen3")  # 추론(thinking) 모델 → think off 안 하면 영어 사고를 출력에 흘림
+REVIEW_MIN_SCORE = 0.45  # 의미검색 폴백 관련도 하한 — 오타·미등록상품·난센스에 엉뚱한 상품 단정 방지
 
 
 # 검색된 리뷰를 근거 텍스트로 (원문 + 속성 감성 라벨)
@@ -101,6 +102,8 @@ def ground(d, q):
             return _product_ctx(d, named[0]), "product", direct
         # 사전계산 없음(미빌드) → 아래 LLM 폴백
     hits = retriever.search(d, q, k=2)     # 자유서술형 / 미빌드 폴백 → 의미검색 + LLM
+    if not hits or hits[0]["score"] < REVIEW_MIN_SCORE:  # 관련 리뷰 없음 → 엉뚱한 상품 단정 회피
+        return "", "review", None
     return _review_ctx(d, hits), "review", None
 
 
@@ -272,7 +275,7 @@ def ask_stream(d, q):
         return
     ctx, mode, direct = ground(d, q)
     if not ctx:
-        yield {"token": "관련 데이터를 못 찾았어요."}
+        yield {"token": "질문과 관련된 리뷰를 찾지 못했어요. 상품명이나 배송·품질 같은 속성으로 물어봐 주세요."}
         yield {"evidence": "", "done": True}
         return
     corr = recall_corrections(d, q)
@@ -317,7 +320,7 @@ def ask(d, q):
         return hit["answer"], hit["evidence"]
     ctx, mode, direct = ground(d, q)
     if not ctx:
-        return "관련 데이터를 못 찾았어요.", ""
+        return "질문과 관련된 리뷰를 찾지 못했어요. 상품명이나 배송·품질 같은 속성으로 물어봐 주세요.", ""
     corr = recall_corrections(d, q)           # 교정 메모리 반영
     if direct and not corr:                   # 집계·추천 즉답(LLM 생략)
         _cache_put(q, direct, ctx)
