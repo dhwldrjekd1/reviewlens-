@@ -1,9 +1,11 @@
-import json, re, urllib.request
+import json, re, os, urllib.request
 import numpy as np
 import db, recommend, retriever, aspect_rules
 
 ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"]
-MODEL = "qwen2.5:3b"   # CPU 한계로 신규 질문은 수초~십수초 → 답변 캐시(_cache_*)로 동일/유사 질문은 즉시
+MODEL = "gemma3:4b"          # 라이브 챗봇(빠름). 한국어 품질 우수, 답변 캐시·사전계산으로 즉답
+SUMMARY_MODEL = "gemma4:12b"  # 오프라인 상품요약 전용(품질 최상). 12B라 느리지만 빌드 1회뿐 → 라이브 무영향
+_THINKING = ("gemma4", "qwen3")  # 추론(thinking) 모델 → think off 안 하면 영어 사고를 출력에 흘림
 
 
 # 검색된 리뷰를 근거 텍스트로 (원문 + 속성 감성 라벨)
@@ -199,16 +201,63 @@ def _bad_lang(s):
 
 
 OLLAMA = "http://localhost:11434/api/generate"
+# 백엔드 전환: 둘 다 내부 엔진은 llama.cpp. RL_BACKEND=llamacpp 면 llama-server로 직접 호출.
+BACKEND = os.environ.get("RL_BACKEND", "ollama")            # ollama | llamacpp
+LLAMACPP = os.environ.get("RL_LLAMACPP", "http://localhost:8080")  # llama-server 주소
 
 
-def _generate(prompt, temp=0.0, seed=0):
+def _generate(prompt, temp=0.0, seed=0, model=None):
+    if BACKEND == "llamacpp":                              # llama-server는 기동 시 GGUF 1개 서빙(model 무시)
+        body = {"prompt": prompt, "n_predict": 200, "temperature": temp, "stream": False}
+        if seed:
+            body["seed"] = seed
+        req = urllib.request.Request(LLAMACPP + "/completion", json.dumps(body).encode(),
+                                     {"Content-Type": "application/json"})
+        return json.loads(urllib.request.urlopen(req, timeout=300).read())["content"].strip()
+    m = model or MODEL
     opts = {"temperature": temp, "num_predict": 200}   # 답변 길이 제한 → 과생성 방지
     if seed:
         opts["seed"] = seed
-    body = json.dumps({"model": MODEL, "stream": False, "keep_alive": "30m",
-                       "prompt": prompt, "options": opts}).encode()   # 모델 상시 로드
-    req = urllib.request.Request(OLLAMA, body, {"Content-Type": "application/json"})
-    return json.loads(urllib.request.urlopen(req, timeout=180).read())["response"].strip()
+    body = {"model": m, "stream": False, "keep_alive": "30m",     # 모델 상시 로드
+            "prompt": prompt, "options": opts}
+    if any(m.startswith(t) for t in _THINKING):
+        body["think"] = False                          # 추론모델: 사고 off → 깔끔한 한국어 즉답
+    req = urllib.request.Request(OLLAMA, json.dumps(body).encode(), {"Content-Type": "application/json"})
+    return json.loads(urllib.request.urlopen(req, timeout=300).read())["response"].strip()
+
+
+# 토큰 스트림(백엔드 공통) — 토큰 문자열을 순서대로 yield
+def _stream_tokens(prompt):
+    if BACKEND == "llamacpp":
+        body = {"prompt": prompt, "n_predict": 200, "temperature": 0.0, "stream": True}
+        req = urllib.request.Request(LLAMACPP + "/completion", json.dumps(body).encode(),
+                                     {"Content-Type": "application/json"})
+        for line in urllib.request.urlopen(req, timeout=300):
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith(b"data: "):       # llama-server SSE: 'data: ' prefix 제거
+                line = line[6:]
+            o = json.loads(line)
+            if o.get("content"):
+                yield o["content"]
+            if o.get("stop"):
+                break
+        return
+    body_d = {"model": MODEL, "stream": True, "keep_alive": "30m",
+              "prompt": prompt, "options": {"temperature": 0.0, "num_predict": 200}}
+    if any(MODEL.startswith(t) for t in _THINKING):
+        body_d["think"] = False                  # 추론모델이면 사고 off
+    req = urllib.request.Request(OLLAMA, json.dumps(body_d).encode(), {"Content-Type": "application/json"})
+    for line in urllib.request.urlopen(req, timeout=180):    # Ollama NDJSON 청크
+        line = line.strip()
+        if not line:
+            continue
+        o = json.loads(line)
+        if o.get("response"):
+            yield o["response"]
+        if o.get("done"):
+            break
 
 
 # 스트리밍 답변: 토큰을 그대로 흘려보냄(체감 속도↑). 단 사후 자기검증/재생성은 불가 →
@@ -231,22 +280,11 @@ def ask_stream(d, q):
         yield {"evidence": ctx, "done": True}
         return
     prompt = _build(q, ctx, corr, mode)
-    body = json.dumps({"model": MODEL, "stream": True, "keep_alive": "30m",
-                       "prompt": prompt, "options": {"temperature": 0.0, "num_predict": 200}}).encode()
     full = ""
     try:
-        req = urllib.request.Request(OLLAMA, body, {"Content-Type": "application/json"})
-        resp = urllib.request.urlopen(req, timeout=180)
-        for line in resp:                       # Ollama는 NDJSON 청크 스트림
-            line = line.strip()
-            if not line:
-                continue
-            obj = json.loads(line)
-            if obj.get("response"):
-                full += obj["response"]
-                yield {"token": obj["response"]}
-            if obj.get("done"):
-                break
+        for tok in _stream_tokens(prompt):      # 백엔드(ollama/llamacpp) 공통
+            full += tok
+            yield {"token": tok}
     except Exception as e:
         yield {"token": f"(LLM 응답 생성을 건너뜀: {e})"}
         yield {"evidence": ctx, "done": True}
@@ -313,7 +351,8 @@ def _summary_prompt(name, agg_lines, revs):
             f"상품: {name}\n근거:\n{body}\n요약:")
 
 
-def build_product_summaries(d):
+def build_product_summaries(d, model=None):
+    model = model or SUMMARY_MODEL          # 기본: 오프라인 고품질 모델
     n = 0
     for iid, name in d.execute("select item_id, name from item").fetchall():
         rows = d.execute("select aspect, sentiment, count(*) from aspect_sentiment "
@@ -334,11 +373,11 @@ def build_product_summaries(d):
             text = f"'{name}'은 아직 리뷰가 충분하지 않아 정확한 평가를 드리기 어려워요."
         else:
             p = _summary_prompt(name, agg_lines, revs)
-            text = _generate(p, temp=0.2, seed=7)
+            text = _generate(p, temp=0.2, seed=7, model=model)
             tries = 0
             while _bad_lang(text) and tries < 2:         # 한자/영어 → 재생성
                 tries += 1
-                text = _generate(p + "\n주의: 한자/영어 쓰지 말고 한국어로만.", 0.4, tries)
+                text = _generate(p + "\n주의: 한자/영어 쓰지 말고 한국어로만.", 0.4, tries, model=model)
             if _bad_lang(text):                          # 끝내 실패 → 집계 폴백
                 text = "리뷰 분석 결과, " + " ".join(
                     f"{a} 항목은 " + ("긍정적인" if v["positive"] >= v["negative"] else "아쉽다는")

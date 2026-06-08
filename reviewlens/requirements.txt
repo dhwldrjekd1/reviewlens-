@@ -6,7 +6,7 @@ transformers
 pandas
 fastapi
 uvicorn
-# LLM ABSA·챗봇은 Ollama(qwen2.5:3b) 로컬 서버 사용 (별도 설치)
+# LLM은 Ollama 로컬 서버 사용 (별도 설치): ABSA=qwen2.5:3b, 챗봇/요약=gemma3:4b
 
 # --- phase 2: 추천 협업필터링 ---
 implicit         # ALS CF (CPU 네이티브). LightFM은 py3.12+setuptools에서 빌드 불가라 대체

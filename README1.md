@@ -93,7 +93,7 @@ cd reviewlens
 python -m uvicorn app:app     # → 브라우저에서 localhost:8000 접속
 ```
 
-(챗봇 AI까지 쓰려면 Ollama로 `qwen2.5:3b` 모델 한 번 받으면 됨)
+(챗봇 AI까지 쓰려면 Ollama로 `gemma3:4b` 모델 한 번 받으면 됨)
 
 ---
 

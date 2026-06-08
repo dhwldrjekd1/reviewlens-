@@ -16,7 +16,7 @@
 |---|---|
 | 한 줄 소개 | 리뷰 감성을 추천·챗봇의 근거로 재사용하는 통합 리뷰 분석 플랫폼 |
 | 핵심 기술 | ABSA(속성별 감성 분석), 협업필터링+감성 하이브리드 추천, 의미검색 RAG 챗봇 |
-| 스택 | Python, FastAPI, SQLite, KoELECTRA, Ollama(qwen2.5:3b), implicit(ALS), ko-sroberta+FAISS |
+| 스택 | Python, FastAPI, SQLite, KoELECTRA, Ollama(gemma3:4b 챗봇·qwen2.5:3b ABSA), implicit(ALS), ko-sroberta+FAISS |
 | 실행 환경 | CPU 전용 (torch CPU 휠 + 로컬 LLM) |
 | 성과 | ABSA F1 0.93(gold 101), 추천 블렌딩 Recall@10 0.31(>popularity 0.19), 속성 학습(NIKL ACD micro-F1 0.66) |
 
@@ -143,8 +143,9 @@ gold은 *평가용*이라 학습엔 부족 → **네이버쇼핑 리뷰 200k**(�
 ```bash
 cd reviewlens
 pip install -r requirements.txt          # torch는 CPU 휠
-# LLM ABSA/챗봇용: Ollama 설치 후
+# Ollama 설치 후 — LLM ABSA용 qwen2.5:3b, 챗봇/요약용 gemma3:4b
 ollama pull qwen2.5:3b
+ollama pull gemma3:4b
 
 python pipeline.py [llm|clf|rule]  # 리뷰 → 감성 저장소 (분석기 선택, 기본 llm)
 python eval.py            # ABSA 3-way F1 비교 (규칙/LLM/학습분류기)
