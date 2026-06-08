@@ -73,6 +73,32 @@ def simulate(n_users=600, n_items=160, eps_pop=0.1, gamma=6.0, span=0.3, rng=Non
 
 
 # ---------------------------------------------------------------------------
+# 1b. 실데이터 로더 — CF 백본을 공개 벤치마크로 검증 (합성 과적합이 아님을 확인)
+#     MovieLens엔 '속성 만족도' 라벨이 없어 감성 블렌딩은 검증 불가 → CF(pop vs ALS)만.
+#     (속성 사이드피처가 있는 공개 쇼핑 데이터가 없어서, 블렌딩은 합성으로 유지한다.)
+# ---------------------------------------------------------------------------
+def load_movielens(path=None):
+    import csv
+    path = path or os.path.join(os.path.dirname(__file__), "data", "ml",
+                                "ml-latest-small", "ratings.csv")
+    uid, iid, ts = [], [], []
+    with open(path, encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            if float(r["rating"]) >= 4.0:            # 평점>=4를 암묵 양성 피드백으로
+                uid.append(r["userId"]); iid.append(r["movieId"]); ts.append(float(r["timestamp"]))
+    umap = {u: k for k, u in enumerate(sorted(set(uid)))}   # 0..n-1 재색인
+    imap = {i: k for k, i in enumerate(sorted(set(iid)))}
+    t = np.array(ts, dtype=float)
+    return {
+        "n_users": len(umap), "n_items": len(imap),
+        "user": np.array([umap[u] for u in uid]),
+        "item": np.array([imap[i] for i in iid]),
+        "time": (t - t.min()) / (t.max() - t.min() + 1e-9),  # [0,1]로 정규화
+        "item_aspect": None, "user_pref": None, "item_cat": None, "user_cat": None,
+    }
+
+
+# ---------------------------------------------------------------------------
 # 2. 시간 기반 분할 (랜덤 분할은 미래→과거 누수)
 # ---------------------------------------------------------------------------
 def time_split(data, q=0.8):
@@ -80,6 +106,19 @@ def time_split(data, q=0.8):
     train = data["time"] <= cut
     test = ~train
     return train, test
+
+
+def loo_split(data):
+    """유저별 leave-last-out — 각 유저의 '시간순 마지막' 상호작용을 test로.
+    CF 표준 평가. 실데이터(MovieLens)는 유저가 특정 시점에 몰려, 전역 시간분할이면
+    유저 전체가 train/test로 쏠려 warm 유저가 거의 안 남기 때문에 이 방식을 쓴다."""
+    order = np.argsort(data["time"], kind="stable")     # 시간 오름차순
+    last = {}
+    for idx in order:
+        last[int(data["user"][idx])] = int(idx)         # 각 유저의 마지막 인덱스로 덮어씀
+    test = np.zeros(len(data["user"]), dtype=bool)
+    test[list(last.values())] = True
+    return ~test, test
 
 
 def build_csr(data, mask, alpha=20.0):
@@ -149,6 +188,7 @@ def evaluate(data, train, test, k=10):
     for u, i in zip(data["user"][test], data["item"][test]):
         te_items[u].add(int(i))
 
+    has_aspect = data.get("item_aspect") is not None    # 실데이터는 속성 라벨 없음 → 블렌딩 생략
     warm, cold = {"pop": [], "als": [], "blend": []}, {"pop": [], "sent": []}
 
     for u in range(data["n_users"]):
@@ -156,17 +196,20 @@ def evaluate(data, train, test, k=10):
         rel = te_items[u] - tr_items[u]
         if not rel:
             continue
-        prefs = data["user_pref"][u]
+        prefs = data["user_pref"][u] if has_aspect else None
         if tr_items[u]:  # 따뜻한 유저 → CF
             als_row = U[u] @ V.T
-            for name, sc in [("pop", pop),
-                             ("als", als_row),
-                             ("blend", blended_scores(als_row, prefs, data["item_aspect"]))]:
+            scorers = [("pop", pop), ("als", als_row)]
+            if has_aspect:
+                scorers.append(("blend", blended_scores(als_row, prefs, data["item_aspect"])))
+            for name, sc in scorers:
                 r = topk(sc, tr_items[u], k)
                 warm[name].append((recall_at_k(r, rel, k), ndcg_at_k(r, rel, k)))
         else:            # 차가운 유저 → 감성 fallback vs 인기도
-            for name, sc in [("pop", pop),
-                             ("sent", sentiment_scores(prefs, data["item_aspect"]))]:
+            scorers = [("pop", pop)]
+            if has_aspect:
+                scorers.append(("sent", sentiment_scores(prefs, data["item_aspect"])))
+            for name, sc in scorers:
                 r = topk(sc, set(), k)
                 cold[name].append((recall_at_k(r, rel, k), ndcg_at_k(r, rel, k)))
 
@@ -181,29 +224,39 @@ def _avg(rows):
 # ---------------------------------------------------------------------------
 # 6. 데모
 # ---------------------------------------------------------------------------
-def main():
+def main(source="synthetic"):
     if hasattr(sys.stdout, "reconfigure"):   # Windows 콘솔(cp949) 한글/대시 깨짐 방지
         sys.stdout.reconfigure(encoding="utf-8")
     K = 10
-    data = simulate()
-    train, test = time_split(data, q=0.8)
-    print(f"유저 {data['n_users']}  아이템 {data['n_items']}  "
+    data = load_movielens() if source == "movielens" else simulate()
+    has_aspect = data.get("item_aspect") is not None
+    # 실데이터는 유저별 leave-last-out(시간순), 합성은 전역 시간분할(설계상 유저 활동기간이 컷을 가로지름)
+    train, test = loo_split(data) if source == "movielens" else time_split(data, q=0.8)
+    tag = "MovieLens-small 실데이터" if source == "movielens" else "합성 시뮬레이션"
+    print(f"[{tag}] 유저 {data['n_users']}  아이템 {data['n_items']}  "
           f"상호작용 {len(data['user'])}  (train {int(train.sum())} / test {int(test.sum())})")
 
     model, train_csr, warm, cold = evaluate(data, train, test, k=K)
 
     print(f"\n== 따뜻한 유저 (상호작용 보유) — Recall@{K} / NDCG@{K} ==")
-    for name, label in [("pop", "popularity (baseline)"),
-                        ("als", "implicit ALS (CF)"),
-                        ("blend", "ALS + 감성 블렌딩")]:
+    warm_labels = [("pop", "popularity (baseline)"), ("als", "implicit ALS (CF)")]
+    if has_aspect:
+        warm_labels.append(("blend", "ALS + 감성 블렌딩"))
+    for name, label in warm_labels:
         r, n = _avg(warm[name])
         print(f"  {label:<26} Recall {r:.3f}  NDCG {n:.3f}  (n={len(warm[name])})")
 
     print(f"\n== 차가운 유저 (상호작용 0, 콜드스타트) — Recall@{K} / NDCG@{K} ==")
-    for name, label in [("pop", "popularity (baseline)"),
-                        ("sent", "감성 스코어러 fallback")]:
+    cold_labels = [("pop", "popularity (baseline)")]
+    if has_aspect:
+        cold_labels.append(("sent", "감성 스코어러 fallback"))
+    for name, label in cold_labels:
         r, n = _avg(cold[name])
         print(f"  {label:<26} Recall {r:.3f}  NDCG {n:.3f}  (n={len(cold[name])})")
+
+    if not has_aspect:   # 실데이터: 속성 라벨이 없어 CF 백본만 검증
+        print("\n(MovieLens엔 속성 만족도 라벨이 없어 CF 백본만 검증 — 감성 블렌딩은 합성 데이터에서 평가)")
+        return
 
     # 설명가능 추천 예시 (따뜻한 유저 1명)
     u = next(i for i in range(data["n_users"]) if train_csr[i].nnz)
@@ -220,4 +273,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # python recommender.py            → 합성(감성 블렌딩까지)
+    # python recommender.py movielens  → 실데이터 CF 백본 검증(pop vs ALS)
+    src = "movielens" if (len(sys.argv) > 1 and sys.argv[1] == "movielens") else "synthetic"
+    main(src)

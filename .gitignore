@@ -9,6 +9,9 @@ __pycache__/
 .venv/
 venv/
 
+# 공개 데이터셋(코드로 다운로드, 저장소 미포함)
+reviewlens/data/ml/
+
 # llama.cpp 바이너리·GGUF 가중치 (대용량, 재배포 X) — serve.ps1 스크립트는 커밋
 llama/bin/
 llama/*.zip

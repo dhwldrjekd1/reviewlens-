@@ -114,7 +114,7 @@ RAG 챗봇은 정답 텍스트가 하나가 아니라, **'지켜야 할 행동'�
 
 ## 측정 결과 (추천, 시간 기반 분할 · `recommender.py`)
 
-상호작용 로그가 없어, 잠재 취향 구조를 심은 **합성 상호작용 시뮬레이터**(유저 600·아이템 160·상호작용 ~9k, seed 고정)로 학습·평가했습니다. 데이터 로더만 교체하면 실데이터(Amazon-Reviews-2023)로 확장됩니다.
+상호작용 로그가 없어, 잠재 취향 구조를 심은 **합성 상호작용 시뮬레이터**(유저 600·아이템 160·상호작용 ~9k, seed 고정)로 학습·평가했습니다. 데이터 로더만 교체하면 실데이터로 확장되며, 실제로 **CF 백본은 아래 MovieLens로 교차검증**했습니다(합성 과적합 아님 확인).
 
 | 유저 그룹 | 방법 | Recall@10 | NDCG@10 |
 |---|---|---|---|
@@ -127,6 +127,18 @@ RAG 챗봇은 정답 텍스트가 하나가 아니라, **'지켜야 할 행동'�
 - **하이브리드 효과**: 순수 CF(0.201)는 인기도(0.185)를 소폭 상회하는 데 그치지만, **감성을 블렌딩하면 0.310**으로 크게 향상 — 협업 신호가 희소할 때 콘텐츠(감성) 신호가 메우는 하이브리드 가설을 실측으로 확인.
 - **콜드스타트**: 상호작용이 0인 신규 유저에서 감성 스코어러(0.260)가 인기도(0.156)를 명확히 상회 → ABSA 감성을 추천 피처로 재사용한 효과.
 - 누수 방지를 위해 **전역 시간 컷오프**로 분할(랜덤 분할 금지). 합성 데이터라 절대값보다 *방법 간 상대 비교*가 핵심.
+
+### 실데이터 CF 백본 검증 (MovieLens-small · leave-last-out)
+"CF가 합성 데이터에 과적합된 것 아니냐"는 의심을 없애려 **공개 벤치마크로 교차검증**. MovieLens엔 속성 만족도 라벨이 없어 감성 블렌딩은 검증 불가 → CF(pop vs ALS)만, 표준 **leave-last-out**(유저별 시간순 마지막을 test).
+
+| 방법 | Recall@10 | NDCG@10 |
+|---|---|---|
+| popularity (baseline) | 0.039 | 0.022 |
+| **implicit ALS (CF)** | **0.074** | **0.040** |
+
+- 608 warm 유저 · 48,580 상호작용(평점≥4를 암묵 양성). **ALS가 인기도를 ~1.9× 상회** → CF 구현이 합성 데이터 덕이 아님을 실데이터로 확인.
+- 한계(정직): 감성 블렌딩(아스펙트 사이드피처)은 *상호작용 + 속성 라벨이 함께 있는* 공개 데이터가 없어 합성으로만 평가. 실 쇼핑 로그(Amazon-Reviews 등) 확보 시 동일 인터페이스(`load_*`)로 확장.
+- 실행: `python recommender.py movielens` (데이터는 코드가 자동 다운로드, 저장소 미포함)
 
 ---
 
@@ -190,7 +202,8 @@ ollama pull gemma4:12b
 python pipeline.py [llm|clf|rule]  # 리뷰 → 감성 저장소 (분석기 선택, 기본 llm)
 python eval.py            # ABSA 3-way F1 비교 (규칙/LLM/학습분류기)
 python recommend.py       # 취향별 설명가능 추천 (phase 1 스코어러)
-python recommender.py     # 협업필터링(ALS)+감성 블렌딩 추천 + 시간분할 평가
+python recommender.py     # 협업필터링(ALS)+감성 블렌딩 추천 + 시간분할 평가(합성)
+python recommender.py movielens  # 실데이터 CF 백본 검증(MovieLens, leave-last-out)
 python retriever.py       # 키워드 vs 의미검색(ko-sroberta+FAISS) 비교 데모
 python sentiment_finetune.py  # 네이버쇼핑 200k로 감성 분류기 학습(linear probing)+평가
 python absa_nikl_train.py     # 국립국어원 ABSA로 속성 카테고리 탐지(ACD) 학습 (json/ 필요)
@@ -245,6 +258,7 @@ json/                 국립국어원 ABSA 말뭉치 (라이선스, .gitignore �
 |---|---|---|
 | `data/reviews.csv`·`gold.csv` | 데모·ABSA 평가 (15상품·55리뷰·101 gold) | 저장소 포함 |
 | 네이버쇼핑 리뷰 200k | 감성 분류기 학습 | 코드로 자동 다운로드(공개) |
+| MovieLens-small (10만 평점) | CF 백본 검증 | 코드로 자동 다운로드(공개) |
 | **국립국어원 ABSA 말뭉치 2021** | 속성 카테고리 학습(ACD) | **라이선스상 비공개** — 미포함 |
 
 > 국립국어원 말뭉치는 [모두의 말뭉치](https://kli.korean.go.kr/corpus/main/requestMain.do)에서 **"속성 기반 감성 분석 말뭉치"** 를 신청·동의 후 받아 `json/`에 넣으면 `absa_nikl_train.py`가 동작합니다. 재배포 금지라 본 저장소엔 원본을 포함하지 않습니다(코드·결과만 공개).
