@@ -32,7 +32,7 @@ const NAV3 = [
       <a v-for="n in NAV" :key="n.v" :class="{ on: active === n.v }" @click="emit('go', n.v)">
         <component :is="n.icon" :size="18" /> {{ n.label }}
       </a>
-      <RouterLink to="/cs"><Bot :size="18" /> CS 챗봇 ↗</RouterLink>
+      <RouterLink to="/cs"><Bot :size="18" /> 인사이트 챗봇 ↗</RouterLink>
       <a v-for="n in NAV2" :key="n.v" :class="{ on: active === n.v }" @click="emit('go', n.v)">
         <component :is="n.icon" :size="18" /> {{ n.label }}
       </a>

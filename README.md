@@ -41,9 +41,9 @@
 
 ![AI 리뷰 답글](reviewlens/docs/img/review.png)
 
-| 랜딩 (`/`) | CS 챗봇 (`/cs`) |
+| 랜딩 (`/`) | 인사이트 챗봇 (`/cs`) |
 |---|---|
-| ![랜딩](reviewlens/docs/img/index.png) | ![CS 챗봇](reviewlens/docs/img/cs.png) |
+| ![랜딩](reviewlens/docs/img/index.png) | ![인사이트 챗봇](reviewlens/docs/img/cs.png) |
 
 > 대시보드의 모든 수치(긍정률 70.3%·속성 점수·기회 맵·Top 이슈·전략 카드)는 데모 데이터셋(15상품·55리뷰)에서 `/api/board`로 **실시간 집계**됩니다 — 하드코딩 목업이 아닙니다.
 >
