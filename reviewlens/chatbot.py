@@ -94,6 +94,15 @@ def _wants_proscons(q):
     return any(k in q for k in ("장점", "단점", "좋은점", "나쁜점", "강점", "약점", "좋은 점", "나쁜 점"))
 
 
+def _wants_overview(q):                     # "전체 리뷰 알려줘" 류 → 전반 개요
+    s = q.replace(" ", "")
+    if any(k in s for k in ("전체리뷰", "리뷰전체", "모든리뷰", "리뷰전부", "리뷰요약",
+                            "리뷰개요", "전체평가", "총평", "전반적")):
+        return True
+    # 앞에 다른 명사(상품·카테고리) 없이 '리뷰 알려/보여/줘'로 시작할 때만 (그 외엔 RAG로)
+    return s.startswith("리뷰") and any(k in s for k in ("알려", "보여", "줘", "어때", "말해"))
+
+
 # 사전계산된 상품 요약 즉답 (없으면 None → LLM 폴백 신호)
 def _product_direct(d, iid):
     row = d.execute("select summary from product_summary where item_id=?", (iid,)).fetchone()
@@ -155,6 +164,30 @@ def _aggregate(d, asps):
     return "속성별 리뷰 집계(전체):\n" + "\n".join(ctx_lines), " ".join(ans)
 
 
+def _overview(d):                           # 전체 리뷰 개요 — 규모·긍정률·속성집계·강점/개선
+    items = d.execute("select count(*) from item").fetchone()[0]
+    revs = d.execute("select count(*) from review").fetchone()[0]
+    agg = {}
+    for a, s, c in d.execute("select aspect, sentiment, count(*) from aspect_sentiment "
+                             "group by aspect, sentiment").fetchall():
+        agg.setdefault(a, {"positive": 0, "negative": 0})[s] = c
+    order = sorted(agg.items(), key=lambda kv: -(kv[1]["positive"] + kv[1]["negative"]))
+    ctx = (f"전체 리뷰 개요 (상품 {items} · 리뷰 {revs}):\n"
+           + "\n".join(f"- {a}: 긍정 {v['positive']} / 부정 {v['negative']}" for a, v in order))
+    tot_pos = sum(v["positive"] for v in agg.values())
+    tot = tot_pos + sum(v["negative"] for v in agg.values())
+    if tot == 0:
+        return ctx, "overview", "아직 분석된 리뷰가 충분하지 않아요."
+    ratio = round(tot_pos / tot * 100)
+    rated = [(a, v["positive"] / (v["positive"] + v["negative"]))
+             for a, v in agg.items() if (v["positive"] + v["negative"])]
+    strong, weak = max(rated, key=lambda x: x[1])[0], min(rated, key=lambda x: x[1])[0]
+    ans = (f"전체 {items}개 상품·{revs}개 리뷰 기준 긍정 비율은 약 {ratio}%입니다. "
+           f"강점은 '{strong}', 개선이 필요한 항목은 '{weak}'이에요. "
+           f"특정 상품이나 속성(배송·품질 등)을 물어보면 더 자세히 알려드릴게요.")
+    return ctx, "overview", ans
+
+
 # 추천 결과 → 즉답 문장 (추천 순위·이유가 이미 계산돼 있으므로 LLM 불필요)
 def _recommend_answer(recs):
     if not recs:
@@ -196,6 +229,8 @@ def ground(d, q):
     if asps and not named:                 # 상품 안 정한 일반 속성 질문 → 전체 집계로 즉답
         ctx, direct = _aggregate(d, asps)
         return ctx, "aggregate", direct
+    if _wants_overview(q) and not named:   # "전체 리뷰 알려줘" → 전반 개요로 즉답
+        return _overview(d)
     st = _smalltalk(q)                     # 인사·감사·도움요청 → 상담봇다운 정형 응답(검색·LLM 불필요)
     if st:
         return "", "smalltalk", st
