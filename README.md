@@ -16,7 +16,7 @@
 |---|---|
 | 한 줄 소개 | 리뷰 감성을 추천·챗봇의 근거로 재사용하는 통합 리뷰 분석 플랫폼 |
 | 핵심 기술 | ABSA(속성별 감성 분석), 협업필터링+감성 하이브리드 추천, 의미검색 RAG 챗봇, 마케팅 자동화(AI 광고 카피·리뷰 답글) |
-| 스택 | Python, FastAPI, SQLite, KoELECTRA, Ollama(gemma3:4b 챗봇·gemma4:12b 요약·qwen2.5:3b ABSA), implicit(ALS), ko-sroberta+FAISS |
+| 스택 | **프런트** Vue 3 + Vite · **백엔드** Python · FastAPI · SQLite/Postgres · KoELECTRA · Ollama(gemma3:4b 챗봇·gemma4:12b 요약·qwen2.5:3b ABSA) · implicit(ALS) · ko-sroberta+FAISS |
 | 실행 환경 | CPU 전용 (torch CPU 휠 + 로컬 LLM) |
 | 성과 | ABSA F1 0.93(gold 101), 추천 블렌딩 Recall@10 0.31(>popularity 0.19), 속성 학습(NIKL ACD micro-F1 0.66) |
 
@@ -234,8 +234,14 @@ python -m train.sentiment_finetune   # 네이버쇼핑 200k로 감성 분류기 
 python -m absa.absa_nikl_train       # 국립국어원 ABSA로 속성 카테고리 탐지(ACD) 학습 (json/ 필요)
 python -m chat.chatbot               # 의미검색 RAG Q&A (LLM 없으면 근거만 반환)
 python -m chat.chat_eval             # 챗봇 행동 평가 (라우팅·오답상품 회피·근거 충실·지연)
-python -m uvicorn app:app # 웹 UI (localhost:8000)
+
+# 프런트엔드(Vue 3 + Vite) — 웹 UI 사용 전 1회 빌드
+cd ../frontend && npm install && npm run build && cd ../reviewlens
+
+python -m uvicorn app:app # 웹 UI (localhost:8000) — FastAPI가 frontend/dist 서빙
 ```
+
+> 프런트 개발 시엔 `cd frontend && npm run dev`(Vite 5173, `/api`는 8000으로 프록시) + 별도 터미널에서 `uvicorn`. 배포는 `Dockerfile`이 Node 빌드 → Python 서빙을 한 번에 처리합니다.
 
 ---
 
@@ -313,13 +319,19 @@ reviewlens/
 ├─ train/          학습
 │  └─ sentiment_finetune.py  네이버쇼핑 200k 감성 분류기 학습 (linear probing)
 │
-├─ static/         dashboard.css
-├─ tabs/           대시보드 탭 partial (*.html)
-├─ index.html · dashboard.html · cs.html   프런트엔드 (바닐라 → Vue 전환 예정)
 ├─ data/           reviews.csv(샘플), gold.csv(정답)
 ├─ db/             reviewlens.db (사전계산 데모 데이터)
 ├─ models/         학습 가중치 (.joblib)
 └─ docs/           기획서.md
+
+frontend/          Vue 3 + Vite SPA (프런트엔드)
+├─ src/
+│  ├─ views/         Landing · Dashboard · Chat
+│  ├─ views/tabs/    9개 탭 컴포넌트 (Strategy·Review·Product·Customer·Rival·Market·Alert·Data·Setting)
+│  ├─ components/    SideNav · TopBar · Bar · SentIcon
+│  ├─ composables/   useBoard.js (/api/board 1회 fetch 공유)
+│  └─ api.js         /api/* 호출 (board · chat 스트리밍)
+└─ dist/            빌드 산출물 (FastAPI가 서빙, .gitignore)
 
 json/                 국립국어원 ABSA 말뭉치 (라이선스, .gitignore — 저장소 미포함)
 ```

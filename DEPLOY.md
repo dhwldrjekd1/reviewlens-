@@ -21,7 +21,9 @@ app_port: 7860
 ```
 
 ## 3) 자동 빌드
-HF가 루트의 `Dockerfile`을 감지해 빌드(수 분) → 대시보드가 뜹니다.
+HF가 루트의 `Dockerfile`을 감지해 빌드(수 분) → 대시보드가 뜹니다. **멀티스테이지**라 별도 작업 불필요:
+- **① Node 스테이지**: `frontend/`(Vue+Vite)를 `npm ci && npm run build` → `dist/` 생성.
+- **② Python 스테이지**: 백엔드(`reviewlens/`)를 설치하고 `dist/`를 함께 실어 FastAPI가 SPA를 서빙.
 - 첫 로딩 때 임베딩 모델(ko-sroberta) 1회 다운로드.
 - 데모 DB(`reviewlens/db/reviewlens.db`)가 저장소에 포함돼 바로 데이터가 보입니다.
 

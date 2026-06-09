@@ -1,0 +1,60 @@
+<script setup>
+import { RouterLink } from 'vue-router'
+import { BarChart3, LayoutDashboard, Bot, ArrowRight } from 'lucide-vue-next'
+</script>
+
+<template>
+  <div class="landing">
+    <header class="top">
+      <span class="ic"><BarChart3 :size="17" color="#fff" /></span><b>ReviewLens</b>
+    </header>
+    <main class="wrap">
+      <div class="hero-label">AI REVIEW ANALYTICS</div>
+      <h1>리뷰를 읽고, 분석하고,<br>답하는 AI 엔진</h1>
+      <p class="lead">쇼핑 리뷰를 <b>속성별 감성</b>으로 분석하는 하나의 엔진으로 — 운영자를 위한 <b>분석 대시보드</b>와 고객을 위한 <b>CS 챗봇</b>을 함께 제공합니다.</p>
+      <div class="cards">
+        <RouterLink class="card d" to="/dashboard">
+          <span class="badge"><LayoutDashboard :size="26" color="#fff" /></span>
+          <h3>분석 대시보드</h3>
+          <p>속성별 감성, 개선 이슈, 추천 전략, 인사이트 리포트를 한 화면에서. 마케터·운영자용.</p>
+          <div class="tags"><span>속성 감성</span><span>개선 이슈</span><span>전략 추천</span></div>
+          <span class="go">대시보드 열기 <ArrowRight :size="16" /></span>
+        </RouterLink>
+        <RouterLink class="card c" to="/cs">
+          <span class="badge"><Bot :size="26" color="#fff" /></span>
+          <h3>CS 챗봇</h3>
+          <p>리뷰를 근거로 고객 질문에 자동응대. 의미검색 + 로컬 LLM, 대화로 학습하는 상담봇.</p>
+          <div class="tags"><span>근거 기반</span><span>자동응대</span><span>실시간 동작</span></div>
+          <span class="go">상담 시작 <ArrowRight :size="16" /></span>
+        </RouterLink>
+      </div>
+    </main>
+    <footer class="foot">ReviewLens · 리뷰 분석 엔진 하나로 분석 대시보드 + CS 챗봇</footer>
+  </div>
+</template>
+
+<style scoped>
+.landing{min-height:100vh;background:#f4f5f7;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:11px;padding:22px 40px}
+.top .ic{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#f76b8a,#f99);display:flex;align-items:center;justify-content:center}
+.top b{font-size:19px;font-weight:800}
+.wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 24px 60px;text-align:center}
+.hero-label{font-size:13px;font-weight:800;letter-spacing:.18em;color:#f0617e;margin-bottom:16px}
+h1{font-size:42px;font-weight:800;line-height:1.3;margin-bottom:16px}
+.lead{font-size:16px;color:#6c7280;line-height:1.7;max-width:600px;margin-bottom:42px}
+.lead b{color:#2b2f38}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:22px;width:100%;max-width:860px}
+.card{background:#fff;border:1px solid #eef0f3;border-radius:20px;padding:30px;text-align:left;box-shadow:0 6px 24px rgba(30,40,70,.05);transition:transform .18s,box-shadow .18s;display:flex;flex-direction:column}
+.card:hover{transform:translateY(-4px);box-shadow:0 14px 36px rgba(30,40,70,.10)}
+.card .badge{width:54px;height:54px;border-radius:15px;display:flex;align-items:center;justify-content:center;margin-bottom:18px}
+.card.d .badge{background:linear-gradient(135deg,#f5566f,#f87c7c)}
+.card.c .badge{background:linear-gradient(135deg,#5b8def,#7c6cf0)}
+.card h3{font-size:21px;font-weight:800;margin-bottom:8px}
+.card p{font-size:13.5px;color:#6c7280;line-height:1.65;flex:1;margin-bottom:20px}
+.card .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px}
+.card .tags span{font-size:11px;font-weight:700;border-radius:7px;padding:4px 9px;background:#f5f6fa;color:#7a8090}
+.go{align-self:flex-start;display:flex;align-items:center;gap:7px;font-weight:800;font-size:14px;border-radius:11px;padding:11px 18px;color:#fff}
+.card.d .go{background:#f5566f}.card.c .go{background:#4f7cf7}
+.foot{padding:22px;text-align:center;font-size:12px;color:#9aa0ac}
+@media(max-width:720px){.cards{grid-template-columns:1fr}h1{font-size:30px}}
+</style>

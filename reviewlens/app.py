@@ -10,25 +10,11 @@ from chat import chatbot
 app = FastAPI()
 d = db.get_db()
 HERE = os.path.dirname(__file__)
-# 대시보드 정적 파일(css)·탭 partial 제공 — 가벼운 정적 서빙(새 의존성 없음)
-app.mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static")
-app.mount("/tabs", StaticFiles(directory=os.path.join(HERE, "tabs")), name="tabs")
+DIST = os.path.normpath(os.path.join(HERE, "..", "frontend", "dist"))  # Vue(Vite) 빌드 산출물
 
-def _page(name):  # no-store: 수정이 새로고침에 바로 반영되게
-    html = open(os.path.join(HERE, name), encoding="utf-8").read()
-    return HTMLResponse(html, headers={"Cache-Control": "no-store"})
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-    return _page("index.html")            # 랜딩(두 제품 진입)
-
-@app.get("/dashboard", response_class=HTMLResponse)
-def dashboard():
-    return _page("dashboard.html")         # 분석 대시보드
-
-@app.get("/cs", response_class=HTMLResponse)
-def cs():
-    return _page("cs.html")                # CS 챗봇 (독립)
+# Vue SPA 번들 자산(JS/CSS) 서빙. SPA 라우팅(/ ·/dashboard ·/cs)은 파일 끝 폴백이 index.html 반환.
+if os.path.isdir(os.path.join(DIST, "assets")):
+    app.mount("/assets", StaticFiles(directory=os.path.join(DIST, "assets")), name="assets")
 
 @app.get("/api/summary")
 def summary():
@@ -146,3 +132,14 @@ def _prewarm():
             pass
 
 threading.Thread(target=_prewarm, daemon=True).start()
+
+
+# SPA 폴백 — /api·/assets 외 모든 GET 경로는 Vue 앱(index.html) 반환, 클라이언트 라우터가 처리.
+# (모든 API 라우트보다 뒤에 정의되어야 가로채지 않음)
+@app.get("/{full_path:path}", response_class=HTMLResponse)
+def spa(full_path: str):
+    index = os.path.join(DIST, "index.html")
+    if os.path.exists(index):
+        return HTMLResponse(open(index, encoding="utf-8").read())
+    return HTMLResponse("<h1>프런트엔드 빌드가 없습니다 — frontend/에서 <code>npm run build</code> 후 서버 재시작</h1>",
+                        status_code=503)
