@@ -12,8 +12,6 @@ import os
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
-import numpy as np
-
 MODEL_NAME = "jhgan/ko-sroberta-multitask"
 # ko-sroberta는 기본(C:) HF hub 캐시에 있음. sentiment.py가 전역 HF_HOME=D:를 잡아도
 # 같은 프로세스(eval 등)에서 재다운로드되지 않게 캐시 위치를 명시 고정.

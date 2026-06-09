@@ -94,7 +94,7 @@ def main():
 
     os.makedirs(MODELS, exist_ok=True)
     joblib.dump(clf, os.path.join(MODELS, "sentiment_head.joblib"))
-    print(f"\n  분류기 저장: models/sentiment_head.joblib")
+    print("\n  분류기 저장: models/sentiment_head.joblib")
 
     # 우리 리뷰에 적용 예시 (도메인 전이 확인)
     import db

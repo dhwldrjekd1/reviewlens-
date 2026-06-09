@@ -15,7 +15,7 @@
 | 항목 | 내용 |
 |---|---|
 | 한 줄 소개 | 리뷰 감성을 추천·챗봇의 근거로 재사용하는 통합 리뷰 분석 플랫폼 |
-| 핵심 기술 | ABSA(속성별 감성 분석), 협업필터링+감성 하이브리드 추천, 의미검색 RAG 챗봇 |
+| 핵심 기술 | ABSA(속성별 감성 분석), 협업필터링+감성 하이브리드 추천, 의미검색 RAG 챗봇, 마케팅 자동화(AI 광고 카피·리뷰 답글) |
 | 스택 | Python, FastAPI, SQLite, KoELECTRA, Ollama(gemma3:4b 챗봇·gemma4:12b 요약·qwen2.5:3b ABSA), implicit(ALS), ko-sroberta+FAISS |
 | 실행 환경 | CPU 전용 (torch CPU 휠 + 로컬 LLM) |
 | 성과 | ABSA F1 0.93(gold 101), 추천 블렌딩 Recall@10 0.31(>popularity 0.19), 속성 학습(NIKL ACD micro-F1 0.66) |
@@ -246,6 +246,23 @@ RL_DB=postgres python -m uvicorn app:app
 ```
 
 > **왜 둘 다?** "55행에 Postgres"는 과잉이라 SQLite가 *맞는 선택*이지만, 백엔드 직무에선 Postgres가 표준입니다. 그래서 **전환 가능하게 설계**해 *도구 선택의 판단력 + 양쪽 역량*을 함께 보였습니다. 두 백엔드에서 **동일 결과**(긍정률 70.3%, 속성 집계, 상품 요약, 대시보드 board 쿼리)를 검증했습니다.
+
+---
+
+## 트러블슈팅
+
+| 증상 | 원인 / 해결 |
+|---|---|
+| 챗봇이 답을 못 만듦 / `(LLM 응답 생략)` | Ollama 서버 미가동 → `ollama serve`(또는 Ollama 앱 실행). 모델 없음 → `ollama pull gemma3:4b` |
+| 첫 질문이 십수 초 걸림 | CPU에서 ko-sroberta·LLM **콜드 로드**(최초 1회). 이후엔 캐시·사전계산으로 즉답. GPU면 빠름 |
+| 최초 실행에서 모델 다운로드가 멈춤 | ko-sroberta는 첫 실행에 HuggingFace에서 1회 다운로드(인터넷 필요). 이후 오프라인(`HF_HUB_OFFLINE=1`) |
+| `/static`·`/tabs` 404 | 서버를 **`reviewlens/`에서** 실행했는지 확인(StaticFiles 상대경로). 코드 수정 후엔 서버 재시작 |
+| 대시보드가 빈 화면 / 옛 데이터 | 브라우저 캐시 → **Ctrl+Shift+R**. 데이터가 없으면 `python pipeline.py`로 재빌드 |
+| 포트 8000 사용 중 | 기존 uvicorn 종료 후 재실행 (`--port 8001`로 포트 변경 가능) |
+| 한글 깨짐 (cp949, Windows) | `set PYTHONUTF8=1` 후 실행 (스크립트는 `sys.stdout.reconfigure` 적용됨) |
+| Postgres 연결 거부 | `docker compose up -d` 기동 → `python db_migrate.py` 시드 → `RL_DB=postgres` 실행. 컨테이너 healthy 대기 확인 |
+| `absa_nikl_train.py`가 동작 안 함 | 국립국어원 말뭉치(라이선스)는 미포함 → `json/`에 직접 넣어야 함(선택 기능) |
+| 디스크 부족 | LLM 모델이 큼(수 GB). 안 쓰는 Ollama 모델은 `ollama rm <이름>`으로 정리 |
 
 ---
 

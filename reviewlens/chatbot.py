@@ -1,5 +1,4 @@
 import json, re, os, urllib.request
-import numpy as np
 import db, recommend, retriever, aspect_rules
 
 ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"]
