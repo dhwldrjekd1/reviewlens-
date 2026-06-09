@@ -1,0 +1,13 @@
+.git/
+.venv/
+venv/
+llama/
+json/
+docs/img/
+**/__pycache__/
+**/*.pyc
+reviewlens/data/naver_shopping.txt
+reviewlens/data/ml/
+reviewlens/models/
+reviewlens/.claude/
+*.gguf
