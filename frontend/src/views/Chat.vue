@@ -7,6 +7,10 @@ import { chatStream } from '../api.js'
 const KEY = 'rl_chat'
 const GREETING = '안녕하세요! 무엇을 도와드릴까요? 상품·배송·품질·전체 리뷰에 대해 실제 리뷰를 근거로 답해드려요.'
 const CHIPS = ['전체 리뷰 알려줘', '배송 빠른 편인가요?', '이어폰 소리 어때요?', '포장 상태 괜찮나요?', '가성비 좋은 거 추천해줘']
+// 백엔드 의도 라우팅 결과 → 사람이 읽는 배지 (챗봇이 'LLM 호출'이 아니라 '설계된 RAG 시스템'임을 가시화)
+const INTENT_LABEL = { overview: '전체 개요', aggregate: '속성 집계', recommend: '추천', compare: '비교',
+  product: '상품 요약', product_aspect: '상품·속성', proscons: '장단점', list: '상품 목록', smalltalk: '대화', review: '리뷰 검색(RAG)' }
+const intentLabel = (k) => INTENT_LABEL[k] || 'RAG'
 
 const messages = ref([])      // {role:'u'|'a', text, ev}
 const input = ref('')
@@ -30,13 +34,14 @@ async function ask(text) {
   input.value = ''
   busy.value = true
   messages.value.push({ role: 'u', text: q })
-  const bot = { role: 'a', text: '', ev: '' }
+  const bot = { role: 'a', text: '', ev: '', intent: '', evN: 0 }
   messages.value.push(bot)
   save()
   scrollDown()
   let started = false
   try {
     await chatStream(q, {
+      onMeta: (m) => { bot.intent = m.intent; bot.evN = m.evidence_n },
       onToken: (t) => { if (!started) { bot.text = ''; started = true } bot.text += t; scrollDown() },
       onReplace: (full) => { bot.text = full },
       onEvidence: (ev) => { bot.ev = ev },
@@ -63,7 +68,7 @@ onMounted(() => { load(); scrollDown() })
       <RouterLink class="home" to="/"><ArrowLeft :size="16" /> 홈</RouterLink>
       <div class="ti">
         <span class="av"><Bot :size="17" color="#fff" /></span>
-        <div><b>ReviewLens 상담봇</b><small>실제 리뷰를 근거로 답해드려요</small></div>
+        <div><b>리뷰 인사이트 봇</b><small>실제 리뷰를 근거로 답해드려요</small></div>
       </div>
       <div class="grow"></div>
       <button class="new" @click="newChat"><Plus :size="15" /> 새 대화</button>
@@ -79,6 +84,7 @@ onMounted(() => { load(); scrollDown() })
           <div v-else class="msg a">
             <span class="ab"></span>
             <div class="body">
+              <div v-if="m.intent" class="ibadge">{{ intentLabel(m.intent) }}<span v-if="m.evN" class="n"> · 근거 {{ m.evN }}</span></div>
               <span>{{ m.text || '…' }}</span>
               <div v-if="m.ev" class="ev">
                 <div class="t"><Search :size="13" /> 근거 리뷰</div>
@@ -122,6 +128,8 @@ onMounted(() => { load(); scrollDown() })
 .msg.a{align-self:flex-start;display:flex;gap:11px;max-width:92%}
 .msg.a .ab{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#5b8def,#7c6cf0);flex:none}
 .msg.a .body{background:#fff;border:1px solid #e6e9ef;padding:13px 16px;border-radius:16px;border-bottom-left-radius:5px;white-space:pre-wrap}
+.msg.a .ibadge{display:inline-block;font-size:11px;font-weight:700;color:#3a5bd0;background:#eef3ff;border:1px solid #d7e2ff;border-radius:7px;padding:2px 8px;margin-bottom:8px;white-space:normal}
+.msg.a .ibadge .n{color:#7a8aa8;font-weight:600}
 .msg.a .ev{margin-top:10px;background:#f7f8fb;border:1px solid #e6e9ef;border-radius:11px;padding:11px 13px;font-size:11.5px;color:#7a8090}
 .msg.a .ev .t{font-weight:700;color:#555;margin-bottom:6px;display:flex;align-items:center;gap:5px}
 .msg.a .ev .r{padding:3px 0;border-top:1px dashed #e8eaef}

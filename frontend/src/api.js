@@ -7,7 +7,7 @@ export async function getBoard() {
 }
 
 // 챗봇 스트리밍(NDJSON) — onToken/onReplace/onEvidence 콜백으로 토큰 전달
-export async function chatStream(q, { onToken, onReplace, onEvidence } = {}) {
+export async function chatStream(q, { onToken, onReplace, onEvidence, onMeta } = {}) {
   const res = await fetch('/api/chat/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -26,6 +26,7 @@ export async function chatStream(q, { onToken, onReplace, onEvidence } = {}) {
       buf = buf.slice(nl + 1)
       if (!line) continue
       const o = JSON.parse(line)
+      if (o.meta !== undefined) onMeta && onMeta(o.meta)
       if (o.token !== undefined) onToken && onToken(o.token)
       if (o.replace !== undefined) onReplace && onReplace(o.replace)
       if (o.evidence !== undefined) onEvidence && onEvidence(o.evidence)

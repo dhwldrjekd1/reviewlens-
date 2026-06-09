@@ -9,9 +9,9 @@ import { BarChart3, LayoutDashboard, Bot, ArrowRight } from 'lucide-vue-next'
       <span class="ic"><BarChart3 :size="17" color="#fff" /></span><b>ReviewLens</b>
     </header>
     <main class="wrap">
-      <div class="hero-label">AI REVIEW ANALYTICS</div>
-      <h1>리뷰를 읽고, 분석하고,<br>답하는 AI 엔진</h1>
-      <p class="lead">쇼핑 리뷰를 <b>속성별 감성</b>으로 분석하는 하나의 엔진으로 — 운영자를 위한 <b>분석 대시보드</b>와 고객을 위한 <b>CS 챗봇</b>을 함께 제공합니다.</p>
+      <div class="hero-label">AI MARKETING ANALYTICS</div>
+      <h1>리뷰를 마케팅<br>실행안으로 바꾸는 AI</h1>
+      <p class="lead">쇼핑 리뷰를 <b>속성별 감성</b>으로 분석하는 엔진 하나로 — 마케터를 위한 <b>분석 대시보드</b>와 리뷰를 자연어로 묻는 <b>인사이트 챗봇</b>을 제공합니다.</p>
       <div class="cards">
         <RouterLink class="card d" to="/dashboard">
           <span class="badge"><LayoutDashboard :size="26" color="#fff" /></span>
@@ -22,14 +22,14 @@ import { BarChart3, LayoutDashboard, Bot, ArrowRight } from 'lucide-vue-next'
         </RouterLink>
         <RouterLink class="card c" to="/cs">
           <span class="badge"><Bot :size="26" color="#fff" /></span>
-          <h3>CS 챗봇</h3>
-          <p>리뷰를 근거로 고객 질문에 자동응대. 의미검색 + 로컬 LLM, 대화로 학습하는 상담봇.</p>
-          <div class="tags"><span>근거 기반</span><span>자동응대</span><span>실시간 동작</span></div>
-          <span class="go">상담 시작 <ArrowRight :size="16" /></span>
+          <h3>리뷰 인사이트 챗봇</h3>
+          <p>리뷰를 근거로 제품 평판·장단점을 자연어로 빠르게 조회. 의미검색 + 로컬 LLM, 대화로 학습.</p>
+          <div class="tags"><span>근거 기반</span><span>자연어 조회</span><span>실시간 동작</span></div>
+          <span class="go">조회 시작 <ArrowRight :size="16" /></span>
         </RouterLink>
       </div>
     </main>
-    <footer class="foot">ReviewLens · 리뷰 분석 엔진 하나로 분석 대시보드 + CS 챗봇</footer>
+    <footer class="foot">ReviewLens · 리뷰 분석 엔진 하나로 마케팅 대시보드 + 인사이트 챗봇</footer>
   </div>
 </template>
 

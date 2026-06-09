@@ -281,7 +281,7 @@ def _norm(q):
 def _cache_get(q):
     e = _EXACT.get(_norm(q))             # 완전일치 → 임베딩 없이 즉시
     if e:
-        return {"answer": e[0], "evidence": e[1]}
+        return {"answer": e[0], "evidence": e[1], "intent": e[2] if len(e) > 2 else "review"}
     if not _CACHE:
         return None
     qe = retriever.get_model().encode([q], normalize_embeddings=True)[0]
@@ -293,14 +293,22 @@ def _cache_get(q):
     return best if score >= _CACHE_THR else None
 
 
-def _cache_put(q, answer, evidence):
+def _cache_put(q, answer, evidence, intent="review"):
     if not answer or _bad_lang(answer):     # 깨진 답변은 캐시하지 않음
         return
-    _EXACT[_norm(q)] = (answer, evidence)
+    _EXACT[_norm(q)] = (answer, evidence, intent)
     emb = retriever.get_model().encode([q], normalize_embeddings=True)[0]
-    _CACHE.append({"emb": emb, "answer": answer, "evidence": evidence})
+    _CACHE.append({"emb": emb, "answer": answer, "evidence": evidence, "intent": intent})
     if len(_CACHE) > 200:
         _CACHE.pop(0)
+
+
+# 근거 항목 수(배지용): '- '로 시작하는 줄, 없으면 비어있지 않은 줄 수
+def _ev_count(ctx):
+    if not ctx:
+        return 0
+    items = sum(1 for l in ctx.split("\n") if l.strip().startswith("-"))
+    return items or len([l for l in ctx.split("\n") if l.strip()])
 
 
 _RULES = "한국어로만(한자·영어 금지) 1~2문장으로 답해."
@@ -406,15 +414,17 @@ def _stream_tokens(prompt):
 def ask_stream(d, q):
     hit = _cache_get(q)
     if hit:                                  # 캐시 적중 → 생성 생략, 즉시 응답
+        yield {"meta": {"intent": hit.get("intent", "review"), "evidence_n": _ev_count(hit["evidence"]), "cached": True}}
         yield {"token": hit["answer"]}
         yield {"evidence": hit["evidence"], "done": True}
         return
     ctx, mode, direct = ground(d, q)
+    yield {"meta": {"intent": mode, "evidence_n": _ev_count(ctx)}}  # 처리 의도·근거수(시스템 가시화)
     corr = recall_corrections(d, q) if (ctx or direct) else []
     if direct and not corr:                  # 즉답(스몰토크/집계/추천/상품) — LLM 생략
         yield {"token": direct}
         if ctx:                              # 스몰토크(ctx 없음)는 캐시·근거 생략
-            _cache_put(q, direct, ctx)
+            _cache_put(q, direct, ctx, mode)
         yield {"evidence": ctx, "done": True}
         return
     if not ctx:                              # 관련 리뷰 못 찾음(엉뚱한 단정 회피)
@@ -438,7 +448,7 @@ def ask_stream(d, q):
         if not _bad_lang(clean):
             yield {"replace": clean}
             final = clean
-    _cache_put(q, final, ctx)               # 다음 동일/유사 질문은 즉시 응답
+    _cache_put(q, final, ctx, mode)         # 다음 동일/유사 질문은 즉시 응답
     yield {"evidence": ctx, "done": True}
 
 
