@@ -84,10 +84,13 @@ def board():  # 대시보드 전 탭이 쓰는 실데이터 집계(가공 0, 전
             cg.setdefault(pr["category"], []).append(pr["score"])
     cat_avg = sorted([{"name": c, "score": round(sum(v) / len(v))} for c, v in cg.items()],
                      key=lambda x: -x["score"])
-    # 인용: 부정(부정 속성 보유 리뷰), 긍정(부정 0인 리뷰)
-    negq = [{"text": t, "meta": c} for t, c in d.execute(
-        "select distinct r.raw_text, i.category from aspect_sentiment a join review r using(review_id) "
-        "join item i using(item_id) where a.sentiment='negative' limit 3")]
+    # 인용: 부정(부정 속성 보유 리뷰) + AI 답글 초안, 긍정(부정 0인 리뷰)
+    negq = []
+    for rid, t, c in d.execute(
+            "select distinct r.review_id, r.raw_text, i.category from aspect_sentiment a join review r using(review_id) "
+            "join item i using(item_id) where a.sentiment='negative' limit 4"):
+        rep = d.execute("select reply from review_reply where review_id=?", (rid,)).fetchone()
+        negq.append({"text": t, "meta": c, "reply": rep[0] if rep else ""})
     posq = [{"text": t, "meta": c} for t, c in d.execute(
         "select r.raw_text, i.category from review r join item i using(item_id) where r.review_id in "
         "(select review_id from aspect_sentiment group by review_id having sum(sentiment='negative')=0) limit 3")]

@@ -542,6 +542,36 @@ def build_marketing(d, model=None):
     return n
 
 
+# --- 오프라인 사전계산: 부정 리뷰 → AI 답글 초안 (평판관리 자동화) ---
+def _reply_prompt(name, text):
+    return ("아래는 한 고객의 부정적인 리뷰야. 판매자 입장에서 정중하고 공감 어린 한국어 답글을 1~2문장으로 써. "
+            "사과와 개선 의지를 담되 과장하지 말고, 한자·영어는 쓰지 마.\n"
+            f"상품: {name}\n리뷰: {text}\n답글:")
+
+
+def build_replies(d, model=None):
+    model = model or MODEL          # 답글은 짧으니 빠른 gemma3:4b
+    n, seen = 0, set()
+    rows = d.execute("select distinct r.review_id, i.name, r.raw_text "
+                     "from aspect_sentiment a join review r using(review_id) join item i using(item_id) "
+                     "where a.sentiment='negative'").fetchall()
+    for rid, name, text in rows:
+        if rid in seen:
+            continue
+        seen.add(rid)
+        rep = _generate(_reply_prompt(name, text), temp=0.4, seed=5, model=model)
+        tries = 0
+        while _bad_lang(rep) and tries < 2:
+            tries += 1
+            rep = _generate(_reply_prompt(name, text) + "\n주의: 한국어로만.", 0.5, tries + 5, model=model)
+        if _bad_lang(rep):
+            continue
+        d.execute("insert or replace into review_reply(review_id, reply) values(?,?)", (rid, rep))
+        n += 1
+    d.commit()
+    return n
+
+
 if __name__ == "__main__":
     import sys
     if hasattr(sys.stdout, "reconfigure"):

@@ -34,6 +34,10 @@
 
 ![AI 광고 카피](reviewlens/docs/img/market.png)
 
+**AI 리뷰 답글** (`/dashboard#review`) — 부정 리뷰마다 정중한 판매자 답글 초안을 자동 생성(평판관리 자동화):
+
+![AI 리뷰 답글](reviewlens/docs/img/review.png)
+
 | 랜딩 (`/`) | CS 챗봇 (`/cs`) |
 |---|---|
 | ![랜딩](reviewlens/docs/img/index.png) | ![CS 챗봇](reviewlens/docs/img/cs.png) |

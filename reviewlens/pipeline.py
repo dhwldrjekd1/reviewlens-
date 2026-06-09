@@ -59,6 +59,13 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
     except Exception as e:
         print(f"[광고 카피 생략: {e}]")
 
+    print("[AI 리뷰 답글 생성 중...]")
+    try:
+        n = chatbot.build_replies(d)
+        print(f"[리뷰 답글 {n}건 생성 완료]")
+    except Exception as e:
+        print(f"[리뷰 답글 생략: {e}]")
+
 if __name__ == "__main__":
     # python pipeline.py [llm|clf|rule]  (기본 llm)
     mode = sys.argv[1] if len(sys.argv) > 1 else "llm"

@@ -30,6 +30,9 @@ create table if not exists product_summary(
 create table if not exists product_copy(
     item_id text primary key, copy text, basis text
 );
+create table if not exists review_reply(
+    review_id integer primary key, reply text
+);
 """
 
 
