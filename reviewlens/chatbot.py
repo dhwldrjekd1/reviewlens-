@@ -383,6 +383,13 @@ def build_product_summaries(d, model=None):
             while _bad_lang(text) and tries < 2:         # 한자/영어 → 재생성
                 tries += 1
                 text = _generate(p + "\n주의: 한자/영어 쓰지 말고 한국어로만.", 0.4, tries, model=model)
+            # 근거충실 자기검증(빌드 시): 요약이 근거(집계·리뷰)에만 기반하는지 모델이 판정 → 실패 시 재생성
+            ev = "\n".join(agg_lines + [f"- (리뷰) {t}" for t in revs])
+            if not _bad_lang(text) and not _grounded(text, ev):
+                cand = _generate(p + "\n주의: 근거(집계·리뷰)에 있는 내용만 쓰고 지어내지 마라.",
+                                 0.3, 9, model=model)
+                if not _bad_lang(cand):
+                    text = cand
             if _bad_lang(text):                          # 끝내 실패 → 집계 폴백
                 text = "리뷰 분석 결과, " + " ".join(
                     f"{a} 항목은 " + ("긍정적인" if v["positive"] >= v["negative"] else "아쉽다는")
