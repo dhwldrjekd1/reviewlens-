@@ -502,6 +502,46 @@ def build_product_summaries(d, model=None):
     return n
 
 
+# --- 오프라인 사전계산: 리뷰 강점 → AI 광고 카피 (마케팅 산출물 자동 생성) ---
+def _ad_prompt(name, strengths):
+    return ("아래 상품의 '강점'을 살린 짧고 임팩트 있는 한국어 광고 문구 2개를 만들어. "
+            + _RULES.replace("1~2문장으로 답해.", "각 문구는 한 줄·15자 내외로.") +
+            " 과장·허위 없이 강점에 근거하고, 번호·따옴표 없이 한 줄에 하나씩 써.\n"
+            f"상품: {name}\n강점: {strengths}\n광고 문구:")
+
+
+def build_marketing(d, model=None):
+    model = model or MODEL                      # 가볍게: 빠른 gemma3:4b
+    n = 0
+    for iid, name in d.execute("select item_id, name from item").fetchall():
+        rows = d.execute("select aspect, sum(sentiment='positive'), sum(sentiment='negative') "
+                         "from aspect_sentiment where item_id=? group by aspect", (iid,)).fetchall()
+        strong = sorted(((a, p or 0, g or 0) for a, p, g in rows),
+                        key=lambda x: (-(x[1] / (x[1] + x[2]) if x[1] + x[2] else 0), -x[1]))
+        strong = [a for a, p, g in strong if p > g][:2]
+        if not strong:
+            continue
+        basis = ", ".join(strong)
+        text = _generate(_ad_prompt(name, basis), temp=0.7, seed=3, model=model)
+        tries = 0
+        while _bad_lang(text) and tries < 2:
+            tries += 1
+            text = _generate(_ad_prompt(name, basis) + "\n주의: 한국어로만.", 0.8, tries + 3, model=model)
+        if _bad_lang(text):
+            continue
+        parts = []
+        for l in text.splitlines():
+            l = re.sub(r"^\s*\d+\s*[.)]\s*", "", l.strip(" -·\"'“”"))   # 앞 번호(1. 2.) 제거
+            if l:
+                parts.append(l)
+        copy = " · ".join(parts[:2])
+        d.execute("insert or replace into product_copy(item_id, copy, basis) values(?,?,?)",
+                  (iid, copy, basis))
+        n += 1
+    d.commit()
+    return n
+
+
 if __name__ == "__main__":
     import sys
     if hasattr(sys.stdout, "reconfigure"):

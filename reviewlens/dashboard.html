@@ -149,7 +149,9 @@ R.market=b=>{
   const cards=iss.slice(0,3).map((x,i)=>{const t=TIPS[x.aspect]||[x.aspect,'개선 검토','info'];return `<div class="scard ${cc[i]}"><div class="ic"><i data-lucide="${t[2]}"></i></div><span class="tag ${tg[i][0]}">${tg[i][1]}</span><h4>${t[0]}</h4><p>${t[1]} (부정 ${x.count}건)</p><span class="go">실행하기 <i data-lucide="arrow-right"></i></span></div>`;}).join('');
   const strong=a.slice(0,3).map(x=>bar(x.name,x.score,'점')).join('');
   const pri=iss.slice(0,4).map((x,i)=>`<div class="issue"><span class="rk">${i+1}</span><span class="tx"><b>${x.aspect}</b><span>부정 ${x.count}건</span></span></div>`).join('');
+  const copies=b.products.filter(p=>p.copy).slice(0,6).map(p=>`<div class="quote g" style="border-left-color:#f0617e;flex-direction:column;gap:4px"><div style="font-size:12px;color:#9aa0ac"><b style="color:#2b2f38">${E(p.name)}</b> · ${E(p.basis)} 강점</div><div style="font-size:15.5px;font-weight:700;color:#c23258;line-height:1.5">${E(p.copy)}</div></div>`).join('');
   document.getElementById('tab-market').innerHTML=`
+  ${copies?`<div class="panel"><div class="phead"><h3>✨ AI 광고 카피 <span style="font-weight:500;color:#aab">(리뷰 강점 → 문구 자동 생성)</span></h3></div>${copies}</div>`:''}
   <div class="panel"><div class="phead"><h3>추천 전략 (부정 이슈 기반)</h3></div><div class="scards">${cards}</div></div>
   <div class="row r2">
     <div class="panel"><div class="phead"><h3>강점 속성 (셀링포인트)</h3></div><div class="alist">${strong}</div></div>
@@ -197,8 +199,10 @@ async function load(v){
   if(window.lucide) lucide.createIcons();
   window.scrollTo(0,0);
 }
-nav.addEventListener('click',e=>{const a=e.target.closest('a[data-v]');if(!a)return;
-  nav.querySelectorAll('a').forEach(x=>x.classList.toggle('on',x===a)); load(a.dataset.v);});
+const TABS=['strategy','review','product','customer','rival','market','alert','data','setting'];
+function go(v){ nav.querySelectorAll('a[data-v]').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); if(location.hash.slice(1)!==v) history.replaceState(null,'','#'+v); load(v); }
+nav.addEventListener('click',e=>{const a=e.target.closest('a[data-v]');if(!a)return; go(a.dataset.v);});
+addEventListener('hashchange',()=>{const v=location.hash.slice(1); if(TABS.includes(v))go(v);});
 
 // 사이드바·상단바 실데이터 채우기
 getBoard().then(b=>{ if(!b.kpi)return; const k=b.kpi;
@@ -208,7 +212,7 @@ getBoard().then(b=>{ if(!b.kpi)return; const k=b.kpi;
   let warn=b.aspects.filter(x=>x.score<=40).length;
   document.getElementById('top-bell').textContent=warn||'·';
 });
-load('strategy');
+go(TABS.includes(location.hash.slice(1))?location.hash.slice(1):'strategy');
 </script>
 </body>
 </html>

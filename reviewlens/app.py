@@ -72,8 +72,10 @@ def board():  # 대시보드 전 탭이 쓰는 실데이터 집계(가공 0, 전
         p, g = d.execute("select sum(sentiment='positive'), sum(sentiment='negative') "
                          "from aspect_sentiment where item_id=?", (iid,)).fetchone()
         p, g = p or 0, g or 0
+        cp = d.execute("select copy, basis from product_copy where item_id=?", (iid,)).fetchone()
         prods.append({"name": name, "category": cat, "pos": p, "neg": g, "n": p + g,
-                      "score": round(100 * p / (p + g)) if p + g else 0})
+                      "score": round(100 * p / (p + g)) if p + g else 0,
+                      "copy": cp[0] if cp else "", "basis": cp[1] if cp else ""})
     prods.sort(key=lambda x: -x["score"])
     # 카테고리 평균(상품 점수 평균)
     cg = {}

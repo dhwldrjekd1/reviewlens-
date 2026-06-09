@@ -27,6 +27,9 @@ create table if not exists feedback(
 create table if not exists product_summary(
     item_id text primary key, summary text, generated text default current_timestamp
 );
+create table if not exists product_copy(
+    item_id text primary key, copy text, basis text
+);
 """
 
 
