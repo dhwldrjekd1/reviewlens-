@@ -1,0 +1,25 @@
+# 선택형 Postgres 백엔드 — 로컬 개발/시연용.
+#   1) docker compose up -d            # Postgres 컨테이너 기동
+#   2) cd reviewlens && python db_migrate.py     # SQLite 데이터 → Postgres 복사
+#   3) RL_DB=postgres python -m uvicorn app:app   # 앱을 Postgres로 실행
+# 기본(이 파일 없이)은 SQLite라 Docker 없이도 그대로 동작한다.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: reviewlens-pg
+    environment:
+      POSTGRES_USER: reviewlens
+      POSTGRES_PASSWORD: reviewlens
+      POSTGRES_DB: reviewlens
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reviewlens -d reviewlens"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  pgdata:

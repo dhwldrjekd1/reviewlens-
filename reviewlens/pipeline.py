@@ -28,11 +28,12 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
     d = db.get_db()
     d.execute("delete from aspect_sentiment")  # 재실행해도 깨끗하게
     for iid, (name, cat) in items.items():
-        d.execute("insert or replace into item values(?,?,?)", (iid, name, cat))
+        d.execute("insert or replace into item(item_id,name,category) values(?,?,?)",
+                  (iid, name, cat))
 
     for r in reviews():
         rid, iid = int(r["review_id"]), r["item_id"]
-        d.execute("insert or replace into review values(?,?,?,?)",
+        d.execute("insert or replace into review(review_id,item_id,raw_text,rating) values(?,?,?,?)",
                   (rid, iid, r["text"], int(r["rating"])))
         for aspect, senti, conf, ev in analyzer.analyze(r["text"]):
             d.execute("insert into aspect_sentiment(review_id,item_id,aspect,sentiment,confidence,evidence)"

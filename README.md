@@ -214,11 +214,39 @@ python -m uvicorn app:app # 웹 UI (localhost:8000)
 
 ---
 
+## 데이터베이스 — SQLite(기본) · Postgres(선택)
+
+기본은 **SQLite**입니다. 임베디드(파일 1개)·제로셋업이라 *"`uvicorn` 하나로 로컬·오프라인 동작"*이라는 이 프로젝트 설계와 맞습니다 (단일 사용자 분석 도구엔 SQLite가 적합).
+
+동시에 **다중 사용자·다중 서버 프로덕션을 가정한 Postgres 백엔드**를 `RL_DB` 환경변수로 전환할 수 있게 했습니다. 코드의 SQL은 **한 벌(SQLite 기준)** 만 두고, `db.py`의 얇은 어댑터가 방언 차이를 자동 변환합니다 — *리포지토리 패턴으로 백엔드 교체*.
+
+| SQLite | → Postgres 자동 변환 |
+|---|---|
+| `?` 플레이스홀더 | `%s` |
+| `sum(sentiment='positive')` | `sum((…)::int)` |
+| `insert or replace into …` | `insert … on conflict … do update` |
+| `integer primary key autoincrement` | `serial primary key` |
+
+```bash
+# 기본: SQLite (Docker 불필요)
+python -m uvicorn app:app
+
+# Postgres로 전환 (Docker)
+docker compose up -d                 # Postgres 컨테이너 기동
+python reviewlens/db_migrate.py      # SQLite 데이터 → Postgres 복사 (ABSA 재실행 불필요)
+RL_DB=postgres python -m uvicorn app:app
+```
+
+> **왜 둘 다?** "55행에 Postgres"는 과잉이라 SQLite가 *맞는 선택*이지만, 백엔드 직무에선 Postgres가 표준입니다. 그래서 **전환 가능하게 설계**해 *도구 선택의 판단력 + 양쪽 역량*을 함께 보였습니다. 두 백엔드에서 **동일 결과**(긍정률 70.3%, 속성 집계, 상품 요약, 대시보드 board 쿼리)를 검증했습니다.
+
+---
+
 ## 파일 구조
 
 ```
 reviewlens/
-├─ db.py           SQLite 스키마 + 집계 (감성 저장소)
+├─ db.py           DB 어댑터(감성 저장소) — SQLite 기본 / Postgres(RL_DB) 전환, 방언 자동 변환
+├─ db_migrate.py   SQLite → Postgres 데이터 복사 (Docker Postgres 시드)
 ├─ aspect_rules.py 속성 사전 + 절 분리 (분석기 공유)
 ├─ sentiment.py    규칙 + KoELECTRA ABSA (부트스트랩)
 ├─ absa_llm.py     LLM(Ollama) ABSA, JSON 스키마 강제

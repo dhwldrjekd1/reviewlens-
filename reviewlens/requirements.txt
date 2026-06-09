@@ -6,7 +6,9 @@ transformers
 pandas
 fastapi
 uvicorn
-# LLM은 Ollama 로컬 서버 사용 (별도 설치): ABSA=qwen2.5:3b, 챗봇/요약=gemma3:4b
+# LLM은 Ollama 로컬 서버 사용 (별도 설치): ABSA=qwen2.5:3b, 챗봇/요약=gemma3:4b·gemma4:12b
+# DB는 기본 SQLite(표준 라이브러리, 설치 불필요). Postgres 백엔드(RL_DB=postgres) 쓸 때만:
+psycopg[binary]   # Postgres 어댑터 (선택)
 
 # --- phase 2: 추천 협업필터링 ---
 implicit         # ALS CF (CPU 네이티브). LightFM은 py3.12+setuptools에서 빌드 불가라 대체
