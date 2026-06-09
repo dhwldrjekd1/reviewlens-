@@ -28,13 +28,12 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Malgun Got
 .hero p{font-size:15.5px;line-height:1.7;opacity:.95;max-width:560px}
 .hero .ring{position:absolute;right:44px;top:50%;transform:translateY(-50%);width:168px;height:168px;border-radius:50%;background:rgba(255,255,255,.16);display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.35)}
 .hero .ring .t{font-size:14px;opacity:.92}.hero .ring .v{font-size:39px;font-weight:800;margin:2px 0}.hero .ring .d{font-size:13px;opacity:.92}
-.hero .bars{position:absolute;right:200px;bottom:30px;opacity:.5}
-@media(max-width:1150px){.hero .ring{right:30px}.hero .bars{display:none}}
+@media(max-width:1150px){.hero .ring{right:30px}}
 .row{display:grid;gap:20px}.r3{grid-template-columns:1fr 1fr 1fr}.r2{grid-template-columns:1fr 1fr}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px;box-shadow:0 1px 2px rgba(30,40,70,.04),0 6px 20px rgba(30,40,70,.05);transition:box-shadow .18s,transform .18s}.panel:hover{box-shadow:0 6px 26px rgba(30,40,70,.10)}
 .phead{display:flex;align-items:center;margin-bottom:16px}.phead h3{font-size:18px;font-weight:800}
 .phead .i{color:#c2c6cf;margin-left:5px;font-size:14px}.phead .more{margin-left:auto;font-size:13px;color:#9aa0ac;border:1px solid var(--line);border-radius:8px;padding:4px 10px;cursor:pointer}
-.snap{display:flex;gap:18px;align-items:center}
+.snap{display:flex;gap:24px;align-items:center}
 .gauge{position:relative;width:128px;height:128px;flex:none}
 .gauge .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .gauge .ctr .v{font-size:28px;font-weight:800}.gauge .ctr .s{font-size:11px;color:var(--muted)}.gauge .ctr .v small{font-size:14px;color:var(--muted);font-weight:700}
@@ -57,17 +56,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Malgun Got
 .tag.t1{background:#f8c9d2;color:#d23a5a}.tag.t2{background:#bfe9d7;color:#1a9c79}.tag.t3{background:#f7dcae;color:#d98a13}
 .scard h4{font-size:16px;font-weight:800;margin-bottom:7px}.scard p{font-size:13.5px;color:#6c7280;line-height:1.6;flex:1}
 .scard .go{margin-top:14px;align-self:flex-start;font-size:13px;font-weight:700;background:#fff;border-radius:9px;padding:8px 13px;cursor:pointer}
-.arrows{margin-left:auto;display:flex;gap:6px}.arrows button{width:26px;height:26px;border-radius:8px;border:1px solid var(--line);background:#fff;color:#999;cursor:pointer}
 .quote{border-radius:12px;padding:13px 15px;margin-bottom:11px;font-size:14px;line-height:1.6;color:#444;display:flex;gap:10px}
 .quote.g{background:#f2fbf7}.quote.n{background:#fff7ec}.quote .em{font-size:19px;flex:none}.quote .meta{color:#a0a4b0;font-size:12px;margin-top:7px}
-.chatbox{height:250px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:2px 2px 6px}
-.msg{max-width:86%;padding:10px 13px;border-radius:13px;font-size:14px;line-height:1.55}
-.msg.u{align-self:flex-end;background:#fdeef0;color:#c23258;border-bottom-right-radius:4px}
-.msg.a{align-self:flex-start;background:#f5f6f8;color:#333;border-bottom-left-radius:4px;display:flex;gap:8px}
-.msg.a .ab{width:22px;height:22px;border-radius:7px;background:linear-gradient(135deg,#f76b8a,#f99);flex:none}
-.msg.a .ev{margin-top:7px;padding-top:7px;border-top:1px dashed #dcdfe6;color:#9aa0ac;font-size:12px;line-height:1.5}
-.chatin{display:flex;gap:8px;margin-top:12px}.chatin input{flex:1;border:1px solid var(--line);border-radius:11px;padding:11px 14px;font-size:14px;outline:0}
-.chatin input:focus{border-color:#f5b6c2}.chatin button{width:42px;border:0;border-radius:11px;background:linear-gradient(135deg,#f5566f,#f87c7c);color:#fff;cursor:pointer;font-size:17px}.chatin button:disabled{opacity:.5}
 .foot{font-size:13px;color:#b0b5c0;padding:2px 4px}.h1{font-size:26px;font-weight:800;margin-bottom:2px}.sub{color:var(--muted);font-size:14.5px}
 .toggle{margin-left:auto;width:36px;height:20px;border-radius:11px;background:#e3e6ec;position:relative;cursor:pointer}
 .toggle.on{background:var(--green)}.toggle i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}.toggle.on i{left:18px}
@@ -91,11 +81,25 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Malgun Got
   .top .pill{padding:8px 10px;font-size:14px}.share{padding:9px 13px}
   .wrap{padding:6px 12px 24px}.hero{padding:20px 18px}
 }
-.lucide{width:18px;height:18px;stroke-width:2;vertical-align:-.22em}.logo .ic .lucide{width:16px;height:16px}.pill .lucide,.dlbtn .lucide,.share .lucide{width:15px;height:15px}.bell .lucide{width:19px;height:19px}.scard .ic .lucide{width:24px;height:24px}.phead .i .lucide{width:14px;height:14px}.arrows .lucide,.chatin button .lucide{width:15px;height:15px}.arow .em .lucide,.quote .em .lucide{width:17px;height:17px}
+.lucide{width:18px;height:18px;stroke-width:2;vertical-align:-.22em}.logo .ic .lucide{width:16px;height:16px}.pill .lucide,.dlbtn .lucide,.share .lucide{width:15px;height:15px}.bell .lucide{width:19px;height:19px}.scard .ic .lucide{width:24px;height:24px}.phead .i .lucide{width:14px;height:14px}.arow .em .lucide,.quote .em .lucide{width:17px;height:17px}
 /* 전략 보드: 스냅샷·기회맵 콘텐츠를 박스에 맞춰 확대 */
-.snap{gap:24px}
 .snap .gauge{width:158px;height:158px}
 .snap .gauge .ctr .v{font-size:29px}.snap .gauge .ctr .v small{font-size:15px}.snap .gauge .ctr .s{font-size:12px}.snap .gauge .ctr .up{font-size:13px}
 .snap .alist{gap:18px}
 .snap .arow{font-size:15px}.snap .arow .em{font-size:21px}.snap .arow .nm{width:96px}.snap .arow .tr{height:12px}.snap .arow .sc{font-size:17px;width:34px}.snap .arow .dl{font-size:13px}
 .oppmap{width:100%;display:block}.oppmap text{font-weight:600}
+
+/* --- 미세 폴리시: 스크롤바·셀렉션·인용 액센트·인터랙션 --- */
+html{scroll-behavior:smooth}
+::selection{background:#fde0e6;color:#c23258}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#dde1e9;border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:#c9cfd9}
+.quote{border-left:3px solid transparent}              /* 좌측 액센트로 흐릿함 보완 */
+.quote.g{border-left-color:#2bc9a0}.quote.n{border-left-color:#f5a623}
+.quote .meta{font-weight:600}
+.share{transition:filter .16s}.share:hover{filter:brightness(1.05)}
+.dlbtn,.bell{transition:border-color .16s,color .16s}
+.dlbtn:hover{border-color:#f0c2cc;color:#222}.bell:hover{border-color:#f0c2cc;color:#666}
+.scard .go{transition:background .16s}.scard .go:hover{background:#fef0f3}
+.issue{transition:background .12s}.issue:hover{background:#fafbfc}
