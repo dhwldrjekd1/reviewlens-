@@ -79,7 +79,7 @@ def simulate(n_users=600, n_items=160, eps_pop=0.1, gamma=6.0, span=0.3, rng=Non
 # ---------------------------------------------------------------------------
 def load_movielens(path=None):
     import csv
-    path = path or os.path.join(os.path.dirname(__file__), "data", "ml",
+    path = path or os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "ml",
                                 "ml-latest-small", "ratings.csv")
     uid, iid, ts = [], [], []
     with open(path, encoding="utf-8") as f:

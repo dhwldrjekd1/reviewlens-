@@ -1,5 +1,8 @@
 import json, re, os, urllib.request
-import db, recommend_live, retriever, aspect_rules
+from store import db
+from recommend import recommend_live
+from chat import retriever
+from absa import aspect_rules
 
 ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"]
 MODEL = "gemma3:4b"          # 라이브 챗봇(빠름). 한국어 품질 우수, 답변 캐시·사전계산으로 즉답

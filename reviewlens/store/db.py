@@ -1,6 +1,6 @@
 import sqlite3, os, re, threading
 
-DB = os.path.join(os.path.dirname(__file__), "db", "reviewlens.db")
+DB = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db", "reviewlens.db")
 # 백엔드 선택: 기본 SQLite(임베디드·제로셋업·로컬), RL_DB=postgres면 Postgres(다중서버 프로덕션용)
 BACKEND = os.environ.get("RL_DB", "sqlite").lower()
 PG_DSN = os.environ.get("RL_PG_DSN",

@@ -8,9 +8,10 @@ sentiment.py(규칙+KoELECTRA)와 '속성 추출'은 동일(aspect_rules 공유)
 analyze()는 다른 분석기와 같은 형식 (aspect, sentiment, confidence, evidence)을 반환.
 """
 import os
-import aspect_rules, retriever
+from absa import aspect_rules
+from chat import retriever
 
-HEAD = os.path.join(os.path.dirname(__file__), "models", "sentiment_head.joblib")
+HEAD = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "sentiment_head.joblib")
 _head = None
 
 

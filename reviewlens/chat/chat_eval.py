@@ -10,7 +10,8 @@ RAG 챗봇은 정답이 하나가 아니라 평가가 까다롭다. 그래서 �
   실행:  python chat_eval.py
 """
 import sys, time
-import db, chatbot
+from store import db
+from chat import chatbot
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")

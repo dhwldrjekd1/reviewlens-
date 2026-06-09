@@ -1,4 +1,4 @@
-import db
+from store import db
 
 # 상품별 속성 긍정비율 = 감성 저장소에서 뽑은 추천 피처
 def item_aspects(d):

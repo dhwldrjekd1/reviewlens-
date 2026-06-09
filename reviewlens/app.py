@@ -2,7 +2,10 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import os, json, threading, db, recommend_live, chatbot
+import os, json, threading
+from store import db
+from recommend import recommend_live
+from chat import chatbot
 
 app = FastAPI()
 d = db.get_db()

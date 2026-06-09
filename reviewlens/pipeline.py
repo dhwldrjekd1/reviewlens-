@@ -1,5 +1,7 @@
 import csv, os, sys
-import db, absa_llm, chatbot  # 기본 LLM ABSA + 상품 요약 사전계산(chatbot 재사용)
+from store import db
+from absa import absa_llm
+from chat import chatbot  # 기본 LLM ABSA + 상품 요약 사전계산(chatbot 재사용)
 
 items = {
     "P1": ("아쿠아 무선이어폰", "전자"),
@@ -70,9 +72,9 @@ if __name__ == "__main__":
     # python pipeline.py [llm|clf|rule]  (기본 llm)
     mode = sys.argv[1] if len(sys.argv) > 1 else "llm"
     if mode == "clf":
-        import absa_clf as analyzer
+        from absa import absa_clf as analyzer
     elif mode == "rule":
-        import sentiment as analyzer
+        from absa import sentiment as analyzer
     else:
         analyzer = absa_llm
     print(f"[analyzer: {mode}]")

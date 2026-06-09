@@ -10,7 +10,7 @@
 import os, json, glob
 
 # json/ 위치 후보 (루트 또는 reviewlens/data 아래)
-_HERE = os.path.dirname(__file__)
+_HERE = os.path.dirname(os.path.dirname(__file__))
 JSON_DIRS = [os.path.join(_HERE, "..", "json"), os.path.join(_HERE, "data", "json"),
              os.path.join(_HERE, "json")]
 SHOP_DOMAINS = {"제품 기타", "전자기기", "화장품/세정제"}  # 쇼핑 도메인만

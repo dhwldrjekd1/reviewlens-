@@ -162,7 +162,7 @@ gold 55리뷰가 "장난감 규모"라는 한계를 정면으로 보완 — **�
 
 - 608 warm 유저 · 48,580 상호작용(평점≥4를 암묵 양성). **ALS가 인기도를 ~1.9× 상회** → CF 구현이 합성 데이터 덕이 아님을 실데이터로 확인.
 - 한계(정직): 감성 블렌딩(아스펙트 사이드피처)은 *상호작용 + 속성 라벨이 함께 있는* 공개 데이터가 없어 합성으로만 평가. 실 쇼핑 로그(Amazon-Reviews 등) 확보 시 동일 인터페이스(`load_*`)로 확장.
-- 실행: `python recommender.py movielens` (데이터는 코드가 자동 다운로드, 저장소 미포함)
+- 실행: `python -m recommend.recommender movielens` (데이터는 코드가 자동 다운로드, 저장소 미포함)
 
 ---
 
@@ -225,15 +225,15 @@ ollama pull gemma4:12b
 
 python pipeline.py [llm|clf|rule]  # 리뷰 → 감성 저장소 (분석기 선택, 기본 llm)
 python eval.py            # ABSA 3-way F1 비교 (규칙/LLM/학습분류기, gold 101)
-python absa_real.py       # 실데이터 ABSA 대규모 검증 (네이버 3천건, 별점 일치도 87.2%)
-python recommend_live.py  # 취향별 설명가능 추천 (phase 1 스코어러)
-python recommender.py     # 협업필터링(ALS)+감성 블렌딩 추천 + 시간분할 평가(합성)
-python recommender.py movielens  # 실데이터 CF 백본 검증(MovieLens, leave-last-out)
-python retriever.py       # 키워드 vs 의미검색(ko-sroberta+FAISS) 비교 데모
-python sentiment_finetune.py  # 네이버쇼핑 200k로 감성 분류기 학습(linear probing)+평가
-python absa_nikl_train.py     # 국립국어원 ABSA로 속성 카테고리 탐지(ACD) 학습 (json/ 필요)
-python chatbot.py         # 의미검색 RAG Q&A (LLM 없으면 근거만 반환)
-python chat_eval.py       # 챗봇 행동 평가 (라우팅·오답상품 회피·근거 충실·지연)
+python -m absa.absa_real             # 실데이터 ABSA 대규모 검증 (네이버 3천건, 별점 일치도 87.2%)
+python -m recommend.recommend_live   # 취향별 설명가능 추천 (phase 1 스코어러)
+python -m recommend.recommender      # 협업필터링(ALS)+감성 블렌딩 추천 + 시간분할 평가(합성)
+python -m recommend.recommender movielens  # 실데이터 CF 백본 검증(MovieLens, leave-last-out)
+python -m chat.retriever             # 키워드 vs 의미검색(ko-sroberta+FAISS) 비교 데모
+python -m train.sentiment_finetune   # 네이버쇼핑 200k로 감성 분류기 학습(linear probing)+평가
+python -m absa.absa_nikl_train       # 국립국어원 ABSA로 속성 카테고리 탐지(ACD) 학습 (json/ 필요)
+python -m chat.chatbot               # 의미검색 RAG Q&A (LLM 없으면 근거만 반환)
+python -m chat.chat_eval             # 챗봇 행동 평가 (라우팅·오답상품 회피·근거 충실·지연)
 python -m uvicorn app:app # 웹 UI (localhost:8000)
 ```
 
@@ -277,7 +277,7 @@ RL_DB=postgres python -m uvicorn app:app
 | 대시보드가 빈 화면 / 옛 데이터 | 브라우저 캐시 → **Ctrl+Shift+R**. 데이터가 없으면 `python pipeline.py`로 재빌드 |
 | 포트 8000 사용 중 | 기존 uvicorn 종료 후 재실행 (`--port 8001`로 포트 변경 가능) |
 | 한글 깨짐 (cp949, Windows) | `set PYTHONUTF8=1` 후 실행 (스크립트는 `sys.stdout.reconfigure` 적용됨) |
-| Postgres 연결 거부 | `docker compose up -d` 기동 → `python db_migrate.py` 시드 → `RL_DB=postgres` 실행. 컨테이너 healthy 대기 확인 |
+| Postgres 연결 거부 | `docker compose up -d` 기동 → `python -m store.db_migrate` 시드 → `RL_DB=postgres` 실행. 컨테이너 healthy 대기 확인 |
 | `absa_nikl_train.py`가 동작 안 함 | 국립국어원 말뭉치(라이선스)는 미포함 → `json/`에 직접 넣어야 함(선택 기능) |
 | 디스크 부족 | LLM 모델이 큼(수 GB). 안 쓰는 Ollama 모델은 `ollama rm <이름>`으로 정리 |
 | **인사이트 요약 공유**가 복사 안 됨 | 클립보드 API는 보안 컨텍스트 전용 → `localhost`·`https`에서만 동작(일반 `http`는 브라우저가 차단). **보고서 다운로드는 어디서나** 동작 |
@@ -288,25 +288,37 @@ RL_DB=postgres python -m uvicorn app:app
 
 ```
 reviewlens/
-├─ db.py           DB 어댑터(감성 저장소) — SQLite 기본 / Postgres(RL_DB) 전환, 방언 자동 변환
-├─ db_migrate.py   SQLite → Postgres 데이터 복사 (Docker Postgres 시드)
-├─ aspect_rules.py 속성 사전 + 절 분리 (분석기 공유)
-├─ sentiment.py    규칙 + KoELECTRA ABSA (부트스트랩)
-├─ absa_llm.py     LLM(Ollama) ABSA, JSON 스키마 강제
-├─ absa_clf.py     규칙 속성 + 학습 분류기 감성 ABSA (phase 2)
-├─ pipeline.py     리뷰 → 분석 → 적재
-├─ recommend_live.py  감성 기반 설명가능 추천 (phase 1 스코어러)
-├─ recommender.py  협업필터링(ALS)+감성 블렌딩 추천 + 시뮬레이터·평가 (phase 2)
-├─ retriever.py    ko-sroberta + FAISS 의미검색 리트리버 (phase 2)
-├─ sentiment_finetune.py  네이버쇼핑 200k 감성 분류기 학습 (linear probing, phase 2)
-├─ absa_nikl.py    국립국어원 ABSA 말뭉치 로더 (쇼핑 도메인)
-├─ absa_nikl_train.py  속성 카테고리 탐지(ACD) 학습·평가 (linear probing)
-├─ chatbot.py      의미검색 RAG + 의도 라우팅 + 사전계산/캐시 + 교정 메모리
-├─ eval.py         gold 대비 ABSA F1 측정 (python eval.py [llm])
-├─ chat_eval.py    챗봇 행동 평가 (라우팅·환각 회피·근거·지연)
-├─ app.py          FastAPI 웹 UI/API (+ /api/board 대시보드 실집계)
-├─ dashboard.html  대시보드 프런트엔드
+├─ app.py          [엔트리] FastAPI 웹 UI/API (+ /api/board 대시보드 실집계)
+├─ pipeline.py     [엔트리] 리뷰 → 분석 → 감성 저장소 적재
+├─ eval.py         [엔트리] gold 대비 ABSA 3-way F1 측정
+│
+├─ store/          데이터 계층
+│  ├─ db.py            DB 어댑터 — SQLite 기본 / Postgres(RL_DB) 전환, 방언 자동 변환
+│  └─ db_migrate.py    SQLite → Postgres 데이터 복사 (Docker 시드)
+├─ absa/           속성별 감성 분석(ABSA)
+│  ├─ aspect_rules.py     속성 사전 + 절 분리 (분석기 공유)
+│  ├─ sentiment.py        규칙 + KoELECTRA ABSA (부트스트랩)
+│  ├─ absa_llm.py         LLM(Ollama) ABSA, JSON 스키마 강제
+│  ├─ absa_clf.py         규칙 속성 + 학습 분류기 감성 ABSA
+│  ├─ absa_nikl.py        국립국어원 ABSA 말뭉치 로더 (쇼핑 도메인)
+│  ├─ absa_nikl_train.py  속성 카테고리 탐지(ACD) 학습·평가
+│  └─ absa_real.py        실데이터 ABSA 대규모 검증 (네이버 3천건)
+├─ recommend/      추천
+│  ├─ recommend_live.py   감성 기반 설명가능 추천 (phase 1 스코어러)
+│  └─ recommender.py      협업필터링(ALS)+감성 블렌딩 + 평가 (phase 2)
+├─ chat/           챗봇 / RAG
+│  ├─ chatbot.py          의미검색 RAG + 의도 라우팅 + 사전계산/캐시 + 교정 메모리
+│  ├─ retriever.py        ko-sroberta + FAISS 의미검색 리트리버
+│  └─ chat_eval.py        챗봇 행동 평가 (라우팅·환각 회피·근거·지연)
+├─ train/          학습
+│  └─ sentiment_finetune.py  네이버쇼핑 200k 감성 분류기 학습 (linear probing)
+│
+├─ static/         dashboard.css
+├─ tabs/           대시보드 탭 partial (*.html)
+├─ index.html · dashboard.html · cs.html   프런트엔드 (바닐라 → Vue 전환 예정)
 ├─ data/           reviews.csv(샘플), gold.csv(정답)
+├─ db/             reviewlens.db (사전계산 데모 데이터)
+├─ models/         학습 가중치 (.joblib)
 └─ docs/           기획서.md
 
 json/                 국립국어원 ABSA 말뭉치 (라이선스, .gitignore — 저장소 미포함)

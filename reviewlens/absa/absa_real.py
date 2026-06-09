@@ -8,12 +8,12 @@ ABSA(규칙 속성추출 + 학습 분류기, `absa_clf`)를 돌리고, **별점�
 """
 import os, sys, random
 from collections import Counter
-import absa_clf
+from absa import absa_clf
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
-DATA = os.path.join(os.path.dirname(__file__), "data", "naver_shopping.txt")
+DATA = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "naver_shopping.txt")
 
 
 def load(n):

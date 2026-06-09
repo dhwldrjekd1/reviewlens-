@@ -9,11 +9,12 @@ CPU 제약상 전체 파인튜닝 대신 linear probing: ko-sroberta 임베딩(�
 import os, sys
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 import numpy as np
-import absa_nikl, retriever
+from absa import absa_nikl
+from chat import retriever
 
 SEED = 42
 MIN_COUNT = 20   # 표본 너무 적은 카테고리는 제외
-MODELS = os.path.join(os.path.dirname(__file__), "models")
+MODELS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 
 
 def main():

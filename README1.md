@@ -85,19 +85,19 @@
 
 ## 📂 폴더 안에 뭐가 있나 (주요 파일만, 쉽게)
 
-| 파일 | 하는 일 |
+> 폴더만 봐도 역할이 보이게 **도메인별로 분리**했어요. (엔트리 3개는 root, 나머지는 폴더)
+
+| 위치 | 하는 일 |
 |---|---|
-| `reviewlens/app.py` | 웹 서버 (대시보드·API) |
-| `reviewlens/dashboard.html` | 마케팅 대시보드 화면 (9개 탭 SPA, Lucide 아이콘) |
-| `reviewlens/sentiment.py` · `absa_llm.py` · `absa_clf.py` | 리뷰 항목별 감성 분석 (3가지 방식) |
-| `reviewlens/recommender.py` | 추천 (협업필터링+감성) |
-| `reviewlens/chatbot.py` · `retriever.py` | 챗봇 (의미검색+AI답변+교정기억) |
-| `reviewlens/sentiment_finetune.py` | 감성 분류기 학습 |
-| `reviewlens/absa_nikl*.py` | 국립국어원 데이터로 항목 추출 학습 |
-| `reviewlens/eval.py` | 정확도(F1) 측정 |
-| `reviewlens/data/` | 샘플 리뷰·정답 라벨 |
-| `README.md` | 기술 상세 설명서 (이건 어려운 버전) |
-| `README1.md` | **이 파일 (쉬운 버전)** |
+| `app.py` · `pipeline.py` · `eval.py` | 실행 진입점 — 웹서버 / 분석빌드 / 정확도측정 |
+| `store/` | 데이터 계층 (DB 어댑터·마이그레이션) |
+| `absa/` | 리뷰 항목별 감성 분석 (규칙·LLM·학습 3방식 + 국립국어원 학습·검증) |
+| `recommend/` | 추천 (감성 스코어러 + 협업필터링) |
+| `chat/` | 챗봇 (의미검색 RAG + 답변 + 교정기억 + 평가) |
+| `train/` | 감성 분류기 학습 (네이버 200k) |
+| `static/` · `tabs/` · `*.html` | 프런트엔드 (바닐라 → Vue 전환 예정) |
+| `data/` · `db/` · `models/` | 샘플·정답·데모DB·학습 가중치 |
+| `README.md` / `README1.md` / `README2.md` | 기술상세 / 쉬운버전(이 파일) / 개발일지 |
 
 ---
 

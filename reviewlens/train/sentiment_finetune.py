@@ -18,7 +18,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import numpy as np
 
-HERE = os.path.dirname(__file__)
+HERE = os.path.dirname(os.path.dirname(__file__))
 DATA = os.path.join(HERE, "data", "naver_shopping.txt")
 URL = "https://raw.githubusercontent.com/bab2min/corpus/master/sentiment/naver_shopping.txt"
 MODELS = os.path.join(HERE, "models")
@@ -58,7 +58,7 @@ def embed_cached(texts, tag):
     cache = os.path.join(MODELS, f"emb_{tag}_{len(texts)}.npy")
     if os.path.exists(cache):
         return np.load(cache)
-    import retriever  # ko-sroberta 싱글톤 재사용
+    from chat import retriever  # ko-sroberta 싱글톤 재사용
     emb = retriever.get_model().encode(texts, batch_size=64, show_progress_bar=False,
                                        normalize_embeddings=True).astype("float32")
     np.save(cache, emb)
@@ -97,7 +97,7 @@ def main():
     print("\n  분류기 저장: models/sentiment_head.joblib")
 
     # 우리 리뷰에 적용 예시 (도메인 전이 확인)
-    import db
+    from store import db
     rows = db.get_db().execute("select raw_text, rating from review limit 6").fetchall()
     demo = embed_cached([t for t, _ in rows], "demo")
     probs = clf.predict_proba(demo)[:, 1]

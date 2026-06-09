@@ -6,7 +6,7 @@
 db.py의 _PgConn/_to_pg 어댑터를 그대로 써서, 같은 SQL이 양쪽에서 도는 걸 보여준다.
 """
 import sys, sqlite3
-import db as dbmod
+from store import db as dbmod
 
 if hasattr(sys.stdout, "reconfigure"):       # Windows 콘솔(cp949) 한글/대시 깨짐 방지
     sys.stdout.reconfigure(encoding="utf-8")
