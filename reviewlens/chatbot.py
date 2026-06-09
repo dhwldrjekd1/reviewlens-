@@ -63,11 +63,11 @@ def _proscons(d, iid, name, q):
                      "from aspect_sentiment where item_id=? group by aspect", (iid,)).fetchall()
     pos = [a for a, p, g in rows if (p or 0) > (g or 0)]
     neg = [a for a, p, g in rows if (g or 0) > 0 and (g or 0) >= (p or 0)]
-    neg_only = any(k in q for k in ("단점", "나쁜", "안 좋", "아쉬", "약점")) and "장점" not in q
-    pos_only = any(k in q for k in ("장점", "좋은", "강점")) and "단점" not in q
-    if neg_only:
+    has_neg = any(k in q for k in ("단점", "나쁜", "안 좋", "아쉬", "약점"))
+    has_pos = any(k in q for k in ("장점", "좋은", "강점", "장단"))   # '장단점'은 둘 다
+    if has_neg and not has_pos:
         direct = f"'{name}'의 아쉬운 점은 " + (", ".join(neg) if neg else "두드러진 단점이 없는") + " 편이에요."
-    elif pos_only:
+    elif has_pos and not has_neg:
         direct = f"'{name}'의 강점은 " + (", ".join(pos) if pos else "뚜렷하지 않은") + " 편이에요."
     else:
         direct = (f"'{name}'의 강점은 {', '.join(pos) or '뚜렷하지 않음'}, "
