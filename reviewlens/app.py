@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-import os, json, threading, db, recommend, chatbot
+import os, json, threading, db, recommend_live, chatbot
 
 app = FastAPI()
 d = db.get_db()
@@ -101,7 +101,7 @@ def board():  # 대시보드 전 탭이 쓰는 실데이터 집계(가공 0, 전
 def rec(prefs: str = "배송,가격"):
     pr = {a: 1 for a in prefs.split(",") if a}
     return [{"name": n, "score": round(s, 2), "why": [{"aspect": a, "pos": int(p*100)} for a, p in w]}
-            for s, n, w in recommend.recommend(d, pr)]
+            for s, n, w in recommend_live.recommend(d, pr)]
 
 class Q(BaseModel):
     q: str

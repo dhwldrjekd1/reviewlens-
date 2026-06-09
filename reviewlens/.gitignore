@@ -1,8 +1,0 @@
-__pycache__/
-*.pyc
-db/*.db
-data/naver_shopping.txt
-models/
-.claude/
-CLAUDE.md
-.mcp.json

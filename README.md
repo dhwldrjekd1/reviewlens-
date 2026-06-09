@@ -224,7 +224,7 @@ ollama pull gemma4:12b
 python pipeline.py [llm|clf|rule]  # 리뷰 → 감성 저장소 (분석기 선택, 기본 llm)
 python eval.py            # ABSA 3-way F1 비교 (규칙/LLM/학습분류기, gold 101)
 python absa_real.py       # 실데이터 ABSA 대규모 검증 (네이버 3천건, 별점 일치도 87.2%)
-python recommend.py       # 취향별 설명가능 추천 (phase 1 스코어러)
+python recommend_live.py  # 취향별 설명가능 추천 (phase 1 스코어러)
 python recommender.py     # 협업필터링(ALS)+감성 블렌딩 추천 + 시간분할 평가(합성)
 python recommender.py movielens  # 실데이터 CF 백본 검증(MovieLens, leave-last-out)
 python retriever.py       # 키워드 vs 의미검색(ko-sroberta+FAISS) 비교 데모
@@ -292,7 +292,7 @@ reviewlens/
 ├─ absa_llm.py     LLM(Ollama) ABSA, JSON 스키마 강제
 ├─ absa_clf.py     규칙 속성 + 학습 분류기 감성 ABSA (phase 2)
 ├─ pipeline.py     리뷰 → 분석 → 적재
-├─ recommend.py    감성 기반 설명가능 추천 (phase 1 스코어러)
+├─ recommend_live.py  감성 기반 설명가능 추천 (phase 1 스코어러)
 ├─ recommender.py  협업필터링(ALS)+감성 블렌딩 추천 + 시뮬레이터·평가 (phase 2)
 ├─ retriever.py    ko-sroberta + FAISS 의미검색 리트리버 (phase 2)
 ├─ sentiment_finetune.py  네이버쇼핑 200k 감성 분류기 학습 (linear probing, phase 2)

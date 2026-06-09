@@ -1,6 +1,6 @@
 """Phase 2 추천 — 협업필터링(implicit ALS) + 감성 블렌딩 + 콜드스타트 fallback.
 
-phase 1 recommend.py는 '감성 점수 스코어러'(상호작용 없이도 동작, 설명가능)였다.
+phase 1 recommend_live.py는 '감성 점수 스코어러'(상호작용 없이도 동작, 설명가능)였다.
 여기서는 그 위에 실제 협업필터링 신호를 얹는다.
 
   · 따뜻한 유저(상호작용 보유) → ALS 협업필터링 (+ 감성 스코어 블렌딩)
@@ -132,7 +132,7 @@ def build_csr(data, mask, alpha=20.0):
 # 3. 스코어러들
 # ---------------------------------------------------------------------------
 def sentiment_scores(prefs_vec, item_aspect):
-    """감성 스코어러: 유저 속성 선호 · 아이템 속성 만족도. recommend.py의 일반화."""
+    """감성 스코어러: 유저 속성 선호 · 아이템 속성 만족도. recommend_live.py의 일반화."""
     return item_aspect @ prefs_vec
 
 

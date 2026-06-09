@@ -1,5 +1,5 @@
 import json, re, os, urllib.request
-import db, recommend, retriever, aspect_rules
+import db, recommend_live, retriever, aspect_rules
 
 ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"]
 MODEL = "gemma3:4b"          # 라이브 챗봇(빠름). 한국어 품질 우수, 답변 캐시·사전계산으로 즉답
@@ -173,7 +173,7 @@ def _recommend_answer(recs):
 def ground(d, q):
     if "추천" in q:  # 추천 의도 → 중시 속성으로 추천
         asp = [a for a in ASPECTS if a in q]
-        recs = recommend.recommend(d, {a: 1 for a in asp} or {"품질": 1})
+        recs = recommend_live.recommend(d, {a: 1 for a in asp} or {"품질": 1})
         ctx = "\n".join(f"- {n}: " + ", ".join(f"{a} {int(p*100)}%" for a, p in why)
                         for _, n, why in recs)
         return ctx, "recommend", _recommend_answer(recs)
