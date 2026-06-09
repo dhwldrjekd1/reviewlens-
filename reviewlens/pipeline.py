@@ -52,6 +52,13 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
     except Exception as e:
         print(f"[상품 요약 생략: {e}]")   # Ollama 미가동 등 — ABSA 결과는 보존
 
+    print("[AI 광고 카피 생성 중...]")
+    try:
+        n = chatbot.build_marketing(d)
+        print(f"[광고 카피 {n}건 생성 완료]")
+    except Exception as e:
+        print(f"[광고 카피 생략: {e}]")
+
 if __name__ == "__main__":
     # python pipeline.py [llm|clf|rule]  (기본 llm)
     mode = sys.argv[1] if len(sys.argv) > 1 else "llm"
