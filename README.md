@@ -295,10 +295,14 @@ RL_DB=postgres python -m uvicorn app:app
 
 ```
 reviewlens/
-├─ app.py          [엔트리] FastAPI 웹 UI/API (+ /api/board 대시보드 실집계)
+├─ app.py          [엔트리] FastAPI 앱 조립 + Vue SPA 서빙 (라우터 include)
 ├─ pipeline.py     [엔트리] 리뷰 → 분석 → 감성 저장소 적재
 ├─ eval.py         [엔트리] gold 대비 ABSA 3-way F1 측정
 │
+├─ api/            HTTP 라우터 (도메인별 분리)
+│  ├─ board.py        /api/summary·stats·board·recommend (분석/대시보드)
+│  ├─ chat.py         /api/chat·chat/stream·feedback (챗봇)
+│  └─ deps.py         공유 DB 커넥션
 ├─ store/          데이터 계층
 │  ├─ db.py            DB 어댑터 — SQLite 기본 / Postgres(RL_DB) 전환, 방언 자동 변환
 │  └─ db_migrate.py    SQLite → Postgres 데이터 복사 (Docker 시드)
