@@ -20,15 +20,79 @@ def _review_ctx(d, hits):
     return "\n".join(lines)
 
 
-# 질문에 특정 상품명이 언급됐나 → (item_id, name) 또는 None.
-# 이름 토큰(len>=2)이 질문에 그대로 들어가면 매칭. 가장 긴 매칭 토큰의 상품을 택해 모호성 완화.
-def _named_item(d, q):
-    best = None
-    for iid, name in d.execute("select item_id, name from item").fetchall():
-        for w in name.split():
-            if len(w) >= 2 and w in q and (best is None or len(w) > best[2]):
-                best = (iid, name, len(w))
-    return (best[0], best[1]) if best else None
+# 질문에 언급된 상품들 (0개 이상) — 이름 토큰(len>=2)이 질문에 그대로 들어가면 매칭.
+def _named_items(d, q):
+    return [(iid, name) for iid, name in d.execute("select item_id, name from item").fetchall()
+            if any(len(w) >= 2 and w in q for w in name.split())]
+
+
+# 상품 비교: 두(이상) 상품을 긍정률로 비교 ("A랑 B 중 뭐가 나아?")
+def _compare(d, named):
+    rows = []
+    for iid, name in named[:3]:
+        p, g = d.execute("select sum(sentiment='positive'), sum(sentiment='negative') "
+                         "from aspect_sentiment where item_id=?", (iid,)).fetchone()
+        p, g = p or 0, g or 0; t = p + g
+        rows.append((name, round(100 * p / t) if t else 0, p, g))
+    rows.sort(key=lambda x: -x[1])
+    ctx = "상품별 만족도(긍정률):\n" + "\n".join(f"- {n}: {s}% (긍 {p}/부 {g})" for n, s, p, g in rows)
+    parts = ", ".join(f"{n} {s}%" for n, s, _, _ in rows)
+    return ctx, "compare", f"리뷰 만족도 기준으로 {parts}예요. '{rows[0][0]}'가 더 좋은 평가를 받았습니다."
+
+
+# 특정 상품 + 특정 속성: "○○ 배송 어때?"
+def _product_aspect(d, iid, name, asps):
+    parts, lines = [], []
+    for a in asps:
+        p, g = d.execute("select sum(sentiment='positive'), sum(sentiment='negative') "
+                         "from aspect_sentiment where item_id=? and aspect=?", (iid, a)).fetchone()
+        p, g = p or 0, g or 0; t = p + g
+        lines.append(f"- {a}: 긍정 {p} / 부정 {g}")
+        if t == 0:
+            parts.append(f"{a} 관련 리뷰가 적어요")
+        else:
+            tone = ("긍정적" if p / t >= 0.6 else
+                    "아쉽다는 의견" if p / t <= 0.4 else "평가가 엇갈리는 편")
+            parts.append(f"{a} {tone}(긍 {p}/부 {g})")
+    return f"{name} 속성 집계:\n" + "\n".join(lines), "product_aspect", f"'{name}'의 " + ", ".join(parts) + "."
+
+
+# 장점/단점만: "○○ 단점만 알려줘"
+def _proscons(d, iid, name, q):
+    rows = d.execute("select aspect, sum(sentiment='positive'), sum(sentiment='negative') "
+                     "from aspect_sentiment where item_id=? group by aspect", (iid,)).fetchall()
+    pos = [a for a, p, g in rows if (p or 0) > (g or 0)]
+    neg = [a for a, p, g in rows if (g or 0) > 0 and (g or 0) >= (p or 0)]
+    neg_only = any(k in q for k in ("단점", "나쁜", "안 좋", "아쉬", "약점")) and "장점" not in q
+    pos_only = any(k in q for k in ("장점", "좋은", "강점")) and "단점" not in q
+    if neg_only:
+        direct = f"'{name}'의 아쉬운 점은 " + (", ".join(neg) if neg else "두드러진 단점이 없는") + " 편이에요."
+    elif pos_only:
+        direct = f"'{name}'의 강점은 " + (", ".join(pos) if pos else "뚜렷하지 않은") + " 편이에요."
+    else:
+        direct = (f"'{name}'의 강점은 {', '.join(pos) or '뚜렷하지 않음'}, "
+                  f"아쉬운 점은 {', '.join(neg) or '뚜렷하지 않음'} 쪽이에요.")
+    return _product_ctx(d, iid), "proscons", direct
+
+
+# 상품 목록: "어떤 상품 있어?"
+def _product_list(d):
+    cats = {}
+    for name, cat in d.execute("select name, category from item").fetchall():
+        cats.setdefault(cat, []).append(name)
+    ctx = "취급 상품:\n" + "\n".join(f"- [{c}] {', '.join(ns)}" for c, ns in cats.items())
+    direct = ("취급 상품은 — " + " / ".join(f"{c}: {', '.join(ns)}" for c, ns in cats.items())
+              + " 입니다. 궁금한 상품을 물어보세요!")
+    return ctx, "list", direct
+
+
+def _wants_list(q):
+    s = q.replace(" ", "")
+    return any(k in s for k in ("상품목록", "상품리스트", "어떤상품", "무슨상품", "뭐팔", "뭐있", "상품뭐", "품목", "목록"))
+
+
+def _wants_proscons(q):
+    return any(k in q for k in ("장점", "단점", "좋은점", "나쁜점", "강점", "약점", "좋은 점", "나쁜 점"))
 
 
 # 사전계산된 상품 요약 즉답 (없으면 None → LLM 폴백 신호)
@@ -114,16 +178,25 @@ def ground(d, q):
         ctx = "\n".join(f"- {n}: " + ", ".join(f"{a} {int(p*100)}%" for a, p in why)
                         for _, n, why in recs)
         return ctx, "recommend", _recommend_answer(recs)
-    named = _named_item(d, q)              # 특정 상품 언급? → (item_id, name) or None
+    if _wants_list(q):                     # "어떤 상품 있어?" → 상품 목록
+        return _product_list(d)
+    named = _named_items(d, q)             # 언급된 상품들 (0개 이상)
     asps = aspect_rules.detect(q)
+    if len(named) >= 2:                    # 두 상품 이상 → 비교
+        return _compare(d, named)
+    if len(named) == 1:                    # 특정 상품 한 개
+        iid, name = named[0]
+        if _wants_proscons(q):             # 장점/단점만
+            return _proscons(d, iid, name, q)
+        if asps:                           # 특정 상품 + 속성 ("○○ 배송 어때?")
+            return _product_aspect(d, iid, name, asps)
+        direct = _product_direct(d, iid)   # 그 외 → 사전계산 요약
+        if direct:
+            return _product_ctx(d, iid), "product", direct
+        # 사전계산 없음(미빌드) → 아래 LLM 폴백
     if asps and not named:                 # 상품 안 정한 일반 속성 질문 → 전체 집계로 즉답
         ctx, direct = _aggregate(d, asps)
         return ctx, "aggregate", direct
-    if named:                              # 특정 상품 → 사전계산 요약이 있으면 즉답
-        direct = _product_direct(d, named[0])
-        if direct:
-            return _product_ctx(d, named[0]), "product", direct
-        # 사전계산 없음(미빌드) → 아래 LLM 폴백
     st = _smalltalk(q)                     # 인사·감사·도움요청 → 상담봇다운 정형 응답(검색·LLM 불필요)
     if st:
         return "", "smalltalk", st
