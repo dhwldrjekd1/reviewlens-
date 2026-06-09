@@ -45,6 +45,8 @@
 | ![랜딩](reviewlens/docs/img/index.png) | ![CS 챗봇](reviewlens/docs/img/cs.png) |
 
 > 대시보드의 모든 수치(긍정률 70.3%·속성 점수·기회 맵·Top 이슈·전략 카드)는 데모 데이터셋(15상품·55리뷰)에서 `/api/board`로 **실시간 집계**됩니다 — 하드코딩 목업이 아닙니다.
+>
+> 액션 버튼도 실데이터로 동작합니다 — **보고서 다운로드**(속성 만족도·개선 이슈를 담은 `.txt` 인사이트 리포트 생성), **인사이트 요약 공유**(강점·개선·최다이슈를 클립보드로 복사), 전략 카드·알림 종은 해당 탭으로 딥링크. (인증이 없는 계정·카테고리 영역은 정직하게 비대화형 표시)
 
 ---
 
@@ -278,6 +280,7 @@ RL_DB=postgres python -m uvicorn app:app
 | Postgres 연결 거부 | `docker compose up -d` 기동 → `python db_migrate.py` 시드 → `RL_DB=postgres` 실행. 컨테이너 healthy 대기 확인 |
 | `absa_nikl_train.py`가 동작 안 함 | 국립국어원 말뭉치(라이선스)는 미포함 → `json/`에 직접 넣어야 함(선택 기능) |
 | 디스크 부족 | LLM 모델이 큼(수 GB). 안 쓰는 Ollama 모델은 `ollama rm <이름>`으로 정리 |
+| **인사이트 요약 공유**가 복사 안 됨 | 클립보드 API는 보안 컨텍스트 전용 → `localhost`·`https`에서만 동작(일반 `http`는 브라우저가 차단). **보고서 다운로드는 어디서나** 동작 |
 
 ---
 

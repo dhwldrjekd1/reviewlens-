@@ -27,17 +27,17 @@
       <a data-v="setting"><i data-lucide="settings"></i> 설정</a>
     </nav>
     <div class="grow"></div>
-    <div class="ucard"><span class="av">M</span><span><small>마케팅팀</small><b>Marketing Team</b></span><span class="ch"><i data-lucide="chevron-down"></i></span></div>
+    <div class="ucard"><span class="av">M</span><span><small>마케팅팀</small><b>Marketing Team</b></span></div>
     <div class="period">데이터셋<b id="ds-period">데모 · 로딩중…</b>분석 엔진<b>ABSA + 감성 분류기</b></div>
-    <div class="dlbtn"><i data-lucide="download"></i> 보고서 다운로드 <i data-lucide="arrow-right"></i></div>
+    <div class="dlbtn" id="dl-report"><i data-lucide="download"></i> 보고서 다운로드 <i data-lucide="arrow-right"></i></div>
   </aside>
 
   <div class="main">
     <header class="top">
       <div class="pill"><i data-lucide="database"></i> <span id="top-ds">데모 데이터셋</span></div>
-      <div class="pill">카테고리 전체 <i data-lucide="chevron-down"></i></div><div class="grow"></div>
-      <div class="bell"><i data-lucide="bell"></i><span class="b" id="top-bell">·</span></div>
-      <button class="share"><i data-lucide="share-2"></i> 인사이트 요약 공유</button>
+      <div class="pill">카테고리 전체</div><div class="grow"></div>
+      <div class="bell" id="bell-btn"><i data-lucide="bell"></i><span class="b" id="top-bell">·</span></div>
+      <button class="share" id="share-btn"><i data-lucide="share-2"></i> 인사이트 요약 공유</button>
     </header>
     <div class="wrap" id="wrap"></div>
   </div>
@@ -207,6 +207,39 @@ const TABS=['strategy','review','product','customer','rival','market','alert','d
 function go(v){ nav.querySelectorAll('a[data-v]').forEach(x=>x.classList.toggle('on',x.dataset.v===v)); if(location.hash.slice(1)!==v) history.replaceState(null,'','#'+v); load(v); }
 nav.addEventListener('click',e=>{const a=e.target.closest('a[data-v]');if(!a)return; go(a.dataset.v);});
 addEventListener('hashchange',()=>{const v=location.hash.slice(1); if(TABS.includes(v))go(v);});
+
+// --- 액션 버튼 (실데이터 기반 동작) ---
+function toast(msg){ const t=document.createElement('div'); t.textContent=msg;
+  t.style.cssText='position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#2b2f38;color:#fff;padding:11px 18px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(30,40,70,.25);z-index:99;opacity:0;transition:opacity .2s';
+  document.body.appendChild(t); requestAnimationFrame(()=>t.style.opacity='1');
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),250);},1900); }
+// 보고서 다운로드 — BOARD 실데이터로 인사이트 리포트(.txt) 생성
+document.getElementById('dl-report').addEventListener('click',async()=>{
+  const b=await getBoard(); if(!b.kpi){toast('데이터 로딩 중입니다');return;}
+  const k=b.kpi,L=['ReviewLens 인사이트 리포트',
+    '데이터셋: 데모 '+k.items+'상품 · '+k.reviews+'리뷰 · '+k.labels+' 감성라벨',
+    '전체 긍정 응답률: '+k.pos_ratio+'% (긍정 '+k.pos+'/'+k.labels+')','','[속성별 만족도]'];
+  b.aspects.forEach(x=>L.push('- '+x.name+': '+x.score+'점 (긍정 '+x.pos+'/부정 '+x.neg+')'));
+  L.push('','[개선 우선순위 이슈]');
+  b.issues.slice(0,5).forEach((x,i)=>L.push((i+1)+'. '+x.aspect+' — 부정 '+x.count+'건'+(x.sample?' ("'+x.sample+'")':'')));
+  const u=URL.createObjectURL(new Blob([L.join('\n')],{type:'text/plain;charset=utf-8'})),el=document.createElement('a');
+  el.href=u; el.download='reviewlens_report.txt'; el.click(); URL.revokeObjectURL(u); toast('보고서를 다운로드했어요'); });
+// 인사이트 공유 — 강점·개선·최다이슈 담은 실요약 클립보드 복사
+document.getElementById('share-btn').addEventListener('click',async()=>{
+  const b=await getBoard(); if(!b.kpi){toast('데이터 로딩 중입니다');return;}
+  const k=b.kpi,a=b.aspects,iss=b.issues[0];
+  const top=[...a].sort((x,y)=>y.score-x.score).slice(0,2).map(x=>x.name+' '+x.score+'점').join(', ');
+  const low=[...a].sort((x,y)=>x.score-y.score).slice(0,2).map(x=>x.name+' '+x.score+'점').join(', ');
+  const txt=['[ReviewLens 인사이트 요약]',
+    '데모 '+k.items+'상품·'+k.reviews+'리뷰 · 긍정 응답률 '+k.pos_ratio+'%',
+    '강점: '+top, '개선: '+low,
+    (iss?'최다 이슈: '+iss.aspect+' 부정 '+iss.count+'건':''),
+    location.href].filter(Boolean).join('\n');
+  try{ await navigator.clipboard.writeText(txt); toast('인사이트 요약을 복사했어요'); }
+  catch(e){ toast('복사 권한을 확인하세요'); } });
+// 알림 종 → 알림 센터 / 전략·마케팅 카드 → 마케팅 추천 탭
+const bb=document.getElementById('bell-btn'); bb.style.cursor='pointer'; bb.addEventListener('click',()=>go('alert'));
+wrap.addEventListener('click',e=>{ if(e.target.closest('.go')) go('market'); });
 
 // 사이드바·상단바 실데이터 채우기
 getBoard().then(b=>{ if(!b.kpi)return; const k=b.kpi;
