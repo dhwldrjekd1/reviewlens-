@@ -50,6 +50,29 @@ def _product_ctx(d, iid):
     return "상품 리뷰 집계:\n" + "\n".join(lines)
 
 
+# 스몰토크: 인사·감사·작별·도움요청 → 친근한 정형 응답 (검색·LLM 불필요). 상담봇다운 대화감.
+_GREET = ("안녕", "하이", "헬로", "hello", "hi", "방가", "반가", "ㅎㅇ")
+_THANKS = ("고마", "감사", "thank", "ㄳ", "굿")
+_BYE = ("잘가", "바이", "bye", "수고", "이만", "들어가")
+_HELP = ("도와", "도움", "뭐할", "뭘할", "뭐물어", "뭘물어", "무엇을", "어떻게써", "어떻게사용",
+         "사용법", "기능", "할수있", "할수잇", "누구", "정체", "어떤거")
+
+
+def _smalltalk(q):
+    s = q.strip().lower().replace(" ", "").replace("?", "").replace("!", "")
+    if any(g.replace(" ", "") in s for g in _GREET):
+        return ("안녕하세요! 실제 리뷰를 근거로 도와드리는 상담봇이에요 🙂 "
+                "상품·배송·품질·추천 등 무엇이든 물어보세요. 예) \"배송 빠른가요?\", \"가성비 추천해줘\"")
+    if any(t in s for t in _THANKS):
+        return "도움이 되었다니 기뻐요! 더 궁금한 점 있으면 언제든 물어보세요."
+    if any(b in s for b in _BYE):
+        return "이용해 주셔서 감사합니다. 좋은 하루 보내세요! 👋"
+    if any(h.replace(" ", "") in s for h in _HELP):
+        return ("리뷰를 근거로 상품을 안내해드려요. 이렇게 물어보세요 — "
+                "속성(\"배송·품질·가격 어때요?\"), 특정 상품(\"아쿠아 무선이어폰 어때요?\"), 추천(\"가성비 추천해줘\").")
+    return None
+
+
 # 일반 속성 질문: 전체 긍/부정 집계 → (근거, 즉답 문장). DB에 답이 있으므로 LLM 없이 바로 생성
 def _aggregate(d, asps):
     ctx_lines, ans = [], []
@@ -101,6 +124,9 @@ def ground(d, q):
         if direct:
             return _product_ctx(d, named[0]), "product", direct
         # 사전계산 없음(미빌드) → 아래 LLM 폴백
+    st = _smalltalk(q)                     # 인사·감사·도움요청 → 상담봇다운 정형 응답(검색·LLM 불필요)
+    if st:
+        return "", "smalltalk", st
     hits = retriever.search(d, q, k=2)     # 자유서술형 / 미빌드 폴백 → 의미검색 + LLM
     if not hits or hits[0]["score"] < REVIEW_MIN_SCORE:  # 관련 리뷰 없음 → 엉뚱한 상품 단정 회피
         return "", "review", None
@@ -274,15 +300,16 @@ def ask_stream(d, q):
         yield {"evidence": hit["evidence"], "done": True}
         return
     ctx, mode, direct = ground(d, q)
-    if not ctx:
+    corr = recall_corrections(d, q) if (ctx or direct) else []
+    if direct and not corr:                  # 즉답(스몰토크/집계/추천/상품) — LLM 생략
+        yield {"token": direct}
+        if ctx:                              # 스몰토크(ctx 없음)는 캐시·근거 생략
+            _cache_put(q, direct, ctx)
+        yield {"evidence": ctx, "done": True}
+        return
+    if not ctx:                              # 관련 리뷰 못 찾음(엉뚱한 단정 회피)
         yield {"token": "질문과 관련된 리뷰를 찾지 못했어요. 상품명이나 배송·품질 같은 속성으로 물어봐 주세요."}
         yield {"evidence": "", "done": True}
-        return
-    corr = recall_corrections(d, q)
-    if direct and not corr:                  # 집계·추천 즉답(LLM 생략) → 신규 질문도 즉시
-        yield {"token": direct}
-        _cache_put(q, direct, ctx)
-        yield {"evidence": ctx, "done": True}
         return
     prompt = _build(q, ctx, corr, mode)
     full = ""
@@ -319,12 +346,13 @@ def ask(d, q):
     if hit:                                   # 캐시 적중 → 즉시 응답
         return hit["answer"], hit["evidence"]
     ctx, mode, direct = ground(d, q)
-    if not ctx:
-        return "질문과 관련된 리뷰를 찾지 못했어요. 상품명이나 배송·품질 같은 속성으로 물어봐 주세요.", ""
-    corr = recall_corrections(d, q)           # 교정 메모리 반영
-    if direct and not corr:                   # 집계·추천 즉답(LLM 생략)
-        _cache_put(q, direct, ctx)
+    corr = recall_corrections(d, q) if (ctx or direct) else []   # 교정 메모리 반영
+    if direct and not corr:                   # 즉답(스몰토크/집계/추천/상품) — LLM 생략
+        if ctx:
+            _cache_put(q, direct, ctx)
         return direct, ctx
+    if not ctx:                               # 관련 리뷰 못 찾음
+        return "질문과 관련된 리뷰를 찾지 못했어요. 상품명이나 배송·품질 같은 속성으로 물어봐 주세요.", ""
     prompt = _build(q, ctx, corr, mode)
     try:
         ans = _generate(prompt)                                  # 1차(결정적)
