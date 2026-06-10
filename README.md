@@ -7,7 +7,7 @@
 | 항목 | 내용 |
 |---|---|
 | 👤 **담당 역할** | 기획 · UI/UX · Frontend · Backend · ML 파이프라인 · DB 설계 · 배포 — **100% 단독 구현** |
-| 📅 **기간** | 2026.0X ~ 2026.0X _(기간 기입)_ |
+| 📅 **기간** | 2026.06.01 ~ 06.12 (약 2주 · 1인 개발) |
 | 🧱 **핵심 스택** | Vue 3 · FastAPI · Python · SQLite/PostgreSQL · Ollama(로컬 LLM) · FAISS · KoELECTRA · Docker |
 | 🔗 **데모 / 코드** | _(배포 후 라이브 링크)_ · GitHub |
 
