@@ -125,7 +125,7 @@ def _product_ctx(d, iid):
     return "상품 리뷰 집계:\n" + "\n".join(lines)
 
 
-# 스몰토크: 인사·감사·작별·도움요청 → 친근한 정형 응답 (검색·LLM 불필요). 상담봇다운 대화감.
+# 스몰토크: 인사·감사·작별·도움요청 → 친근한 정형 응답 (검색·LLM 불필요). 도우미다운 대화감.
 _GREET = ("안녕", "하이", "헬로", "hello", "hi", "방가", "반가", "ㅎㅇ")
 _THANKS = ("고마", "감사", "thank", "ㄳ", "굿")
 _BYE = ("잘가", "바이", "bye", "수고", "이만", "들어가")
@@ -136,7 +136,7 @@ _HELP = ("도와", "도움", "뭐할", "뭘할", "뭐물어", "뭘물어", "무�
 def _smalltalk(q):
     s = q.strip().lower().replace(" ", "").replace("?", "").replace("!", "")
     if any(g.replace(" ", "") in s for g in _GREET):
-        return ("안녕하세요! 실제 리뷰를 근거로 도와드리는 상담봇이에요 🙂 "
+        return ("안녕하세요! 실제 리뷰를 근거로 답해드리는 리뷰 인사이트 도우미예요 🙂 "
                 "상품·배송·품질·추천 등 무엇이든 물어보세요. 예) \"배송 빠른가요?\", \"가성비 추천해줘\"")
     if any(t in s for t in _THANKS):
         return "도움이 되었다니 기뻐요! 더 궁금한 점 있으면 언제든 물어보세요."
@@ -234,7 +234,7 @@ def ground(d, q):
         return ctx, "aggregate", direct
     if _wants_overview(q) and not named:   # "전체 리뷰 알려줘" → 전반 개요로 즉답
         return _overview(d)
-    st = _smalltalk(q)                     # 인사·감사·도움요청 → 상담봇다운 정형 응답(검색·LLM 불필요)
+    st = _smalltalk(q)                     # 인사·감사·도움요청 → 도우미다운 정형 응답(검색·LLM 불필요)
     if st:
         return "", "smalltalk", st
     hits = retriever.search(d, q, k=2)     # 자유서술형 / 미빌드 폴백 → 의미검색 + LLM
