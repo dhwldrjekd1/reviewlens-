@@ -11,7 +11,7 @@ import { BarChart3, LayoutDashboard, Bot, ArrowRight } from 'lucide-vue-next'
     <main class="wrap">
       <div class="hero-label">AI MARKETING ANALYTICS</div>
       <h1>리뷰를 마케팅<br>실행안으로 바꾸는 AI</h1>
-      <p class="lead">쇼핑 리뷰를 <b>속성별 감성</b>으로 분석하는 엔진 하나로 — 마케터를 위한 <b>분석 대시보드</b>와 리뷰를 자연어로 묻는 <b>인사이트 챗봇</b>을 제공합니다.</p>
+      <p class="lead">쇼핑 리뷰를 <b>속성별 감성</b>으로 분석해 — <b>광고 카피·개선 우선순위·대응 답글</b>까지 자동으로 뽑아주는 마케팅 AI. 마케터용 <b>분석 대시보드</b>와 리뷰 <b>인사이트 챗봇</b>을 함께 제공합니다.</p>
       <div class="cards">
         <RouterLink class="card d" to="/dashboard">
           <span class="badge"><LayoutDashboard :size="26" color="#fff" /></span>
