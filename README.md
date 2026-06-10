@@ -244,6 +244,12 @@ python -m uvicorn app:app # 웹 UI (localhost:8000) — FastAPI가 frontend/dist
 
 > 프런트 개발 시엔 `cd frontend && npm run dev`(Vite 5173, `/api`는 8000으로 프록시) + 별도 터미널에서 `uvicorn`. 배포는 `Dockerfile`이 Node 빌드 → Python 서빙을 한 번에 처리합니다.
 
+### 테스트
+순수 로직(모델·Ollama 불필요) 단위테스트 — DB 방언 변환·속성 추출·챗봇 의도 라우팅:
+```bash
+cd reviewlens && pip install pytest && python -m pytest tests/ -q   # 19 passed
+```
+
 ---
 
 ## 데이터베이스 — SQLite(기본) · Postgres(선택)
