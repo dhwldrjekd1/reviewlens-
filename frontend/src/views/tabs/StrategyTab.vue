@@ -43,7 +43,7 @@ const negQ = computed(() => q.value.neg.slice(0, 1))
     <div class="ring"><span class="t">긍정 응답률</span><span class="v">{{ k.pos_ratio }}%</span><span class="d">긍정 {{ k.pos }} / 전체 {{ k.labels }}</span></div>
   </section>
 
-  <section class="row r3" style="align-items:start">
+  <section class="row r3">
     <div class="panel">
       <div class="phead"><h3>속성 감성 스냅샷</h3><span class="i"><Info :size="14" /></span></div>
       <div class="snap">
@@ -89,7 +89,7 @@ const negQ = computed(() => q.value.neg.slice(0, 1))
     <div class="panel">
       <div class="phead"><h3>Top 개선 이슈</h3></div>
       <div class="issues">
-        <div v-for="(x, i) in iss" :key="i" class="issue">
+        <div v-for="(x, i) in iss.slice(0, 3)" :key="i" class="issue">
           <span class="rk">{{ i + 1 }}</span>
           <span class="tx"><b>{{ x.sample || x.aspect + ' 관련 불만' }}</b><span>{{ x.aspect }}</span></span>
           <span class="pc">{{ x.count }}건</span>

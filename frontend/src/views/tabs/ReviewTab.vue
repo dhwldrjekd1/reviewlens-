@@ -88,7 +88,7 @@ function copy(text, i) {
 </template>
 
 <style scoped>
-.donutwrap{display:flex;flex-direction:column;align-items:center;gap:18px;padding:6px 0}
+.donutwrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:6px 0}
 .donut{position:relative;width:150px;height:150px}
 .donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .donut .ctr .v{font-size:27px;font-weight:800;color:#2b2f38}
