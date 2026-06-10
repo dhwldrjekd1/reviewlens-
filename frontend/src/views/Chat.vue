@@ -7,7 +7,8 @@ import { chatStream } from '../api.js'
 const KEY = 'rl_chat'
 const CHIPS = ['배송은 빨랐나요?', '포장 상태는 어땠나요?', '품질은 만족스러웠나요?', '가성비는 어떤가요?', '재구매 의사는 있나요?']
 const INTENT_LABEL = { overview: '전체 개요', aggregate: '속성 집계', recommend: '추천', compare: '비교',
-  product: '상품 요약', product_aspect: '상품·속성', proscons: '장단점', list: '상품 목록', smalltalk: '대화', review: '리뷰 검색(RAG)' }
+  product: '상품 요약', product_aspect: '상품·속성', proscons: '장단점', list: '상품 목록', smalltalk: '대화', review: '리뷰 검색(RAG)',
+  repurchase: '재구매 의향', strength: '강점·셀링포인트', improve: '개선 우선순위', copy: '광고 카피', reply: '리뷰 답글' }
 const intentLabel = (k) => INTENT_LABEL[k] || 'RAG'
 
 const messages = ref([])

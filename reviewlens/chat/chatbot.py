@@ -111,6 +111,26 @@ def _wants_overview(q):                     # "전체 리뷰 알려줘" 류 → 
     return s.startswith("리뷰") and any(k in s for k in ("알려", "보여", "줘", "어때", "말해"))
 
 
+def _wants_improve(q):                      # "개선점/문제점이 뭐야?"
+    s = q.replace(" ", "")
+    return any(k in s for k in ("개선점", "개선할", "문제점", "뭘고쳐", "어디고쳐", "보완", "취약", "고칠점", "약한부분", "불만이많"))
+
+
+def _wants_strength(q):                     # "강점/셀링포인트가 뭐야?" (상품 미지정 일반)
+    s = q.replace(" ", "")
+    return any(k in s for k in ("셀링포인트", "강점이", "강점은", "강점뭐", "강조할", "어필", "마케팅포인트", "잘하는", "내세울"))
+
+
+def _wants_copy(q):                         # "광고 문구/카피 추천"
+    s = q.replace(" ", "")
+    return any(k in s for k in ("광고문구", "광고카피", "카피", "마케팅문구", "마케팅메시지", "홍보문구", "광고만들", "문구추천"))
+
+
+def _wants_reply(q):                        # "부정 리뷰 답글/대응"
+    s = q.replace(" ", "")
+    return any(k in s for k in ("답글", "답변초안", "사과문", "대응문구", "리뷰대응", "답변써", "답글써"))
+
+
 # 사전계산된 상품 요약 즉답 (없으면 None → LLM 폴백 신호)
 def _product_direct(d, iid):
     row = d.execute("select summary from product_summary where item_id=?", (iid,)).fetchone()
@@ -215,6 +235,62 @@ def _repurchase(d):                         # 재구매 의향 — 리뷰 직접
     return ctx, "repurchase", ans
 
 
+def _agg_aspect(d):                         # 속성별 긍/부정 집계 dict (여러 핸들러 공유)
+    agg = {}
+    for a, s, c in d.execute("select aspect, sentiment, count(*) from aspect_sentiment "
+                             "group by aspect, sentiment").fetchall():
+        agg.setdefault(a, {"positive": 0, "negative": 0})[s] = c
+    return agg
+
+
+def _strength(d):                           # 강점/셀링포인트 — 긍정률 상위 속성
+    agg = _agg_aspect(d)
+    rated = sorted([(a, round(v["positive"] / (v["positive"] + v["negative"]) * 100))
+                    for a, v in agg.items() if v["positive"] + v["negative"]], key=lambda x: -x[1])[:3]
+    if not rated:
+        return "", "strength", "아직 강점을 판단할 리뷰가 부족해요."
+    ctx = "강점 속성(긍정률):\n" + "\n".join(f"- {a}: {s}%" for a, s in rated)
+    parts = ", ".join(f"{a}({s}%)" for a, s in rated)
+    ans = (f"리뷰 기준 강점(셀링포인트)은 {parts} 순이에요. "
+           f"광고·상세페이지에서 이 속성을 전면에 내세우면 설득력이 높아집니다.")
+    return ctx, "strength", ans
+
+
+def _improve(d):                            # 개선 우선순위 — 부정 건수 상위 속성
+    rows = d.execute("select aspect, count(*) from aspect_sentiment where sentiment='negative' "
+                     "group by aspect order by count(*) desc").fetchall()[:3]
+    if not rows:
+        return "", "improve", "현재 두드러진 부정 이슈가 없어요."
+    ctx = "개선 우선순위(부정 건수):\n" + "\n".join(f"- {a}: 부정 {c}건" for a, c in rows)
+    parts = ", ".join(f"{a}(부정 {c}건)" for a, c in rows)
+    ans = (f"개선 우선순위는 {parts} 순입니다. "
+           f"부정이 가장 많은 항목부터 대응하면 만족도 개선 효과가 큽니다.")
+    return ctx, "improve", ans
+
+
+def _copy_suggest(d):                       # 광고 카피 — 사전계산된 product_copy 노출
+    rows = d.execute("select i.name, p.copy from product_copy p join item i using(item_id) "
+                     "where p.copy is not null and trim(p.copy)!='' limit 3").fetchall()
+    if not rows:
+        return "", "copy", "광고 카피가 아직 생성되지 않았어요. (빌드 시 자동 생성됩니다)"
+    ctx = "리뷰 강점 기반 광고 카피:\n" + "\n".join(f"- ({n}) {c}" for n, c in rows)
+    ans = ("리뷰 강점으로 자동 생성한 광고 카피 예시예요 — "
+           + " / ".join(f"\"{c}\"({n})" for n, c in rows[:2])
+           + ". 대시보드 '마케팅 추천' 탭에서 상품별 전체 카피를 볼 수 있어요.")
+    return ctx, "copy", ans
+
+
+def _reply_suggest(d):                      # 부정 리뷰 답글 초안 노출
+    rows = d.execute("select r.raw_text, rr.reply from review_reply rr join review r using(review_id) "
+                     "where rr.reply is not null and trim(rr.reply)!='' limit 2").fetchall()
+    if not rows:
+        return "", "reply", "리뷰 답글이 아직 생성되지 않았어요. (빌드 시 자동 생성됩니다)"
+    ctx = "부정 리뷰 답글 초안:\n" + "\n".join(f"- 리뷰: {t}\n  답글: {rp}" for t, rp in rows)
+    ans = (f"부정 리뷰에 정중한 답글 초안을 자동으로 만들어요. 예) \"{rows[0][0][:28]}…\" → "
+           f"\"{rows[0][1][:48]}…\". 대시보드 '리뷰 분석' 탭에서 전체 답글을 볼 수 있어요.")
+    return ctx, "reply", ans
+
+
 # 추천 결과 → 즉답 문장 (추천 순위·이유가 이미 계산돼 있으므로 LLM 불필요)
 def _recommend_answer(recs):
     if not recs:
@@ -231,7 +307,7 @@ def _recommend_answer(recs):
 # 질문 → (근거, 모드, 즉답). 즉답이 있으면(집계·추천) LLM 생략 → 신규 질문도 즉시.
 # 즉답이 None이면(자유서술형 리뷰) LLM으로 생성.
 def ground(d, q):
-    if "추천" in q:  # 추천 의도 → 중시 속성으로 추천
+    if "추천" in q and not _wants_copy(q):  # 추천 의도 → 중시 속성으로 추천 ('카피 추천'은 제외)
         asp = [a for a in ASPECTS if a in q]
         recs = recommend_live.recommend(d, {a: 1 for a in asp} or {"품질": 1})
         ctx = "\n".join(f"- {n}: " + ", ".join(f"{a} {int(p*100)}%" for a, p in why)
@@ -260,6 +336,14 @@ def ground(d, q):
         return _overview(d)
     if _wants_repurchase(q):               # "재구매 의사 있나요?" → 만족도 기반 추정
         return _repurchase(d)
+    if _wants_copy(q):                     # "광고 문구/카피 추천" → 사전생성 카피
+        return _copy_suggest(d)
+    if _wants_reply(q):                    # "부정 리뷰 답글" → 답글 초안
+        return _reply_suggest(d)
+    if _wants_improve(q) and not named:    # "개선점/문제점" → 개선 우선순위
+        return _improve(d)
+    if _wants_strength(q) and not named:   # "강점/셀링포인트" → 강점 속성
+        return _strength(d)
     st = _smalltalk(q)                     # 인사·감사·도움요청 → 도우미다운 정형 응답(검색·LLM 불필요)
     if st:
         return "", "smalltalk", st
