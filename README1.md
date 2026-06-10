@@ -6,7 +6,8 @@
 
 ## 🟢 한 줄 요약
 
-**온라인 쇼핑 리뷰를 AI가 대신 읽고 → 장단점 분석 + 맞춤 추천 + 질문 답변까지 해주는 서비스.**
+**쇼핑 리뷰를 AI가 대신 읽고 → 분석 + 추천 + 질문답변 + 마케팅 자동화(광고카피·답글)까지 해주는 도구.**
+> ML부터 화면(Vue)·배포까지 **혼자 풀스택**으로 만든 **광고·마케팅용** 포트폴리오.
 
 ---
 
@@ -69,7 +70,9 @@
 - [x] **챗봇 답변 확장** — 상품 비교·장단점·속성별·인사 등 (전부 리뷰 근거로) + 엉뚱한 질문은 안전하게 거절
 - [x] **DB 선택형** — 기본 SQLite(파일 1개)·필요하면 Postgres(Docker)로 전환 (둘 다 다룰 줄 안다)
 - [x] **실데이터 대규모 검증** — 실제 네이버 리뷰 3천 건에 ABSA 돌려 별점과 **87% 일치** 확인
-- [x] **라이브 배포 준비** — Docker로 Hugging Face Spaces(무료)에 올리면 **클릭 한 번으로 써볼 수 있는 데모** (`DEPLOY.md`)
+- [x] **프런트엔드 Vue 전환** — 바닐라 HTML → **Vue 3 + Vite** SPA로 (화면·9탭·컴포넌트 분리, 모던 프런트)
+- [x] **백엔드 정리** — 도메인 폴더 + API 라우터 분리, **단위테스트(pytest 19)** 추가
+- [x] **라이브 배포 준비** — Docker 멀티스테이지(Vue 빌드+Python 서빙)로 Hugging Face Spaces(무료)에 **클릭 한 번 데모** (`DEPLOY.md`)
 
 ---
 
@@ -90,12 +93,13 @@
 | 위치 | 하는 일 |
 |---|---|
 | `app.py` · `pipeline.py` · `eval.py` | 실행 진입점 — 웹서버 / 분석빌드 / 정확도측정 |
+| `api/` | 웹 API 라우터 (board: 분석 · chat: 챗봇) |
 | `store/` | 데이터 계층 (DB 어댑터·마이그레이션) |
 | `absa/` | 리뷰 항목별 감성 분석 (규칙·LLM·학습 3방식 + 국립국어원 학습·검증) |
 | `recommend/` | 추천 (감성 스코어러 + 협업필터링) |
 | `chat/` | 챗봇 (의미검색 RAG + 답변 + 교정기억 + 평가) |
 | `train/` | 감성 분류기 학습 (네이버 200k) |
-| `static/` · `tabs/` · `*.html` | 프런트엔드 (바닐라 → Vue 전환 예정) |
+| (별도) `frontend/` | 프런트엔드 — **Vue 3 + Vite** SPA (화면·9탭·컴포넌트) |
 | `data/` · `db/` · `models/` | 샘플·정답·데모DB·학습 가중치 |
 | `README.md` / `README1.md` / `README2.md` | 기술상세 / 쉬운버전(이 파일) / 개발일지 |
 
@@ -104,11 +108,13 @@
 ## ▶️ 실행 한 줄 요약
 
 ```bash
-cd reviewlens
-python -m uvicorn app:app     # → 브라우저에서 localhost:8000 접속
+# 1) 프런트엔드 한 번 빌드 (Vue) — 이거 안 하면 화면이 안 떠요
+cd frontend && npm install && npm run build && cd ..
+# 2) 서버 실행
+cd reviewlens && python -m uvicorn app:app     # → localhost:8000
 ```
 
-(챗봇 AI까지 쓰려면 Ollama로 `gemma3:4b`(답변)·`gemma4:12b`(상품 요약) 모델을 받으면 됨)
+(프런트를 고치며 작업할 땐: `cd frontend && npm run dev` → localhost:5173 / 챗봇 AI까지 쓰려면 Ollama로 `gemma3:4b`·`gemma4:12b` 받기)
 
 ---
 
@@ -118,7 +124,8 @@ python -m uvicorn app:app     # → 브라우저에서 localhost:8000 접속
 |---|---|
 | 챗봇이 답을 못 해요 | Ollama 앱이 켜져 있는지 확인 + `ollama pull gemma3:4b` |
 | 첫 질문이 느려요(십수 초) | 처음 한 번 AI 모델을 불러오느라 그래요. 그 다음부턴 빨라져요 (CPU라 그렇고, GPU 있으면 빠름) |
-| 화면이 비어 있어요 | 새로고침 **Ctrl+Shift+R**. 그래도면 `python pipeline.py`로 데이터 다시 만들기 |
+| "프런트엔드 빌드가 없습니다" / 화면이 안 떠요 | `cd frontend && npm run build` 후 서버 재시작 (Vue 빌드 1회 필요) |
+| 화면이 비어 있어요(데이터) | 새로고침 **Ctrl+Shift+R**. 그래도면 `python pipeline.py`로 데이터 다시 만들기 |
 | 한글이 깨져요(윈도우) | 실행 전에 `set PYTHONUTF8=1` |
 | 포트 8000을 쓰는 중이래요 | 기존 실행 창을 끄고 다시 실행 |
 
