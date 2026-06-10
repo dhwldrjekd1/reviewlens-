@@ -2,7 +2,7 @@
 import { RouterLink } from 'vue-router'
 import {
   BarChart3, LayoutDashboard, MessageSquare, Package, Users, TrendingUp,
-  Megaphone, Bot, Bell, Database, Settings, Download, ArrowRight,
+  Megaphone, Bot, Bell, Database, Settings, Download, ArrowRight, ChevronDown,
 } from 'lucide-vue-next'
 
 defineProps({ active: String, period: String })
@@ -32,7 +32,7 @@ const NAV3 = [
       <a v-for="n in NAV" :key="n.v" :class="{ on: active === n.v }" @click="emit('go', n.v)">
         <component :is="n.icon" :size="18" /> {{ n.label }}
       </a>
-      <RouterLink to="/cs"><Bot :size="18" /> 인사이트 챗봇 ↗</RouterLink>
+      <RouterLink to="/cs"><Bot :size="18" /> CS 챗봇 ↗</RouterLink>
       <a v-for="n in NAV2" :key="n.v" :class="{ on: active === n.v }" @click="emit('go', n.v)">
         <component :is="n.icon" :size="18" /> {{ n.label }}
       </a>
@@ -42,7 +42,7 @@ const NAV3 = [
       </a>
     </nav>
     <div class="grow"></div>
-    <div class="ucard"><span class="av">M</span><span><small>마케팅팀</small><b>Marketing Team</b></span></div>
+    <div class="ucard"><span class="av">M</span><span class="uinfo"><small>마케팅팀</small><b>Marketing Team</b></span><span class="ch"><ChevronDown :size="16" /></span></div>
     <div class="period">데이터셋<b>{{ period || '데모 · 로딩중…' }}</b>분석 엔진<b>ABSA + 감성 분류기</b></div>
     <div class="dlbtn" @click="emit('download')"><Download :size="15" /> 보고서 다운로드 <ArrowRight :size="15" /></div>
   </aside>
