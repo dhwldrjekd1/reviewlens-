@@ -20,11 +20,11 @@ const bubbles = computed(() => {
   const cats = props.board.categories
   const maxv = Math.max(...cats.map((c) => c.vol))
   return cats.map((c) => {
-    const x = 70 + Math.min(Math.max((c.score - 55) / 40, 0), 1) * 330
-    const y = 235 - (c.vol / maxv) * 185
-    const r = 16 + (c.vol / maxv) * 24
+    const x = 80 + Math.min(Math.max((c.score - 55) / 40, 0), 1) * 290
+    const y = 232 - (c.vol / maxv) * 175
+    const r = 22 + (c.vol / maxv) * 38
     const co = PAL[c.name] || ['#dde', '#889']
-    return { x: x.toFixed(0), y: y.toFixed(0), ty: (y + 4).toFixed(0), r: r.toFixed(0), c0: co[0], c1: co[1], name: c.name }
+    return { x: x.toFixed(0), y: y.toFixed(0), ty: (y + 5).toFixed(0), r: r.toFixed(0), c0: co[0], c1: co[1], name: c.name }
   })
 })
 const cards = computed(() => iss.value.slice(0, 3).map((x, i) => {
@@ -72,15 +72,15 @@ const negQ = computed(() => q.value.neg.slice(0, 1))
     <div class="panel">
       <div class="phead"><h3>카테고리 기회 맵</h3><span class="more" style="border:0">● 버블 크기 = 리뷰 감성 수</span></div>
       <svg class="oppmap" viewBox="0 0 440 300">
-        <line x1="55" y1="20" x2="55" y2="255" stroke="#e6e8ec" /><line x1="55" y1="255" x2="420" y2="255" stroke="#e6e8ec" />
-        <text x="14" y="32" font-size="11" fill="#aab">많음</text><text x="14" y="250" font-size="11" fill="#aab">적음</text>
-        <text transform="rotate(-90 16 150)" x="16" y="150" font-size="11" fill="#9aa0ac">리뷰 감성량</text>
-        <text x="60" y="278" font-size="11" fill="#aab">낮음</text><text x="392" y="278" font-size="11" fill="#aab">높음</text>
-        <text x="208" y="278" font-size="11" fill="#9aa0ac">긍정률</text>
-        <g opacity=".88">
+        <line x1="55" y1="20" x2="55" y2="255" stroke="#e6e8ec" /><line x1="55" y1="255" x2="424" y2="255" stroke="#e6e8ec" />
+        <text x="12" y="34" font-size="13" fill="#aab">많음</text><text x="12" y="250" font-size="13" fill="#aab">적음</text>
+        <text transform="rotate(-90 16 150)" x="16" y="150" font-size="13" fill="#9aa0ac">리뷰 감성량</text>
+        <text x="60" y="280" font-size="13" fill="#aab">낮음</text><text x="392" y="280" font-size="13" fill="#aab">높음</text>
+        <text x="205" y="280" font-size="13" fill="#9aa0ac">긍정률</text>
+        <g opacity=".9">
           <template v-for="b in bubbles" :key="b.name">
             <circle :cx="b.x" :cy="b.y" :r="b.r" :fill="b.c0" />
-            <text :x="b.x" :y="b.ty" font-size="12" :fill="b.c1" text-anchor="middle">{{ b.name }}</text>
+            <text :x="b.x" :y="b.ty" font-size="15" font-weight="700" :fill="b.c1" text-anchor="middle">{{ b.name }}</text>
           </template>
         </g>
       </svg>
