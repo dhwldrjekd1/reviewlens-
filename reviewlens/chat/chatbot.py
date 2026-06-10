@@ -97,6 +97,11 @@ def _wants_proscons(q):
     return any(k in q for k in ("장점", "단점", "좋은점", "나쁜점", "강점", "약점", "좋은 점", "나쁜 점"))
 
 
+def _wants_repurchase(q):                   # "재구매 의사 있나요?" 류
+    s = q.replace(" ", "")
+    return any(k in s for k in ("재구매", "재구입", "다시살", "또살", "또구매", "다시구매", "또사", "충성도", "재방문"))
+
+
 def _wants_overview(q):                     # "전체 리뷰 알려줘" 류 → 전반 개요
     s = q.replace(" ", "")
     if any(k in s for k in ("전체리뷰", "리뷰전체", "모든리뷰", "리뷰전부", "리뷰요약",
@@ -191,6 +196,25 @@ def _overview(d):                           # 전체 리뷰 개요 — 규모·�
     return ctx, "overview", ans
 
 
+def _repurchase(d):                         # 재구매 의향 — 리뷰 직접 언급이 적어 만족도로 추정
+    agg = {}
+    for a, s, c in d.execute("select aspect, sentiment, count(*) from aspect_sentiment "
+                             "group by aspect, sentiment").fetchall():
+        agg.setdefault(a, {"positive": 0, "negative": 0})[s] = c
+    tot_pos = sum(v["positive"] for v in agg.values())
+    tot = tot_pos + sum(v["negative"] for v in agg.values())
+    ratio = round(tot_pos / tot * 100) if tot else 0
+    rated = sorted([(a, v["positive"] / (v["positive"] + v["negative"]))
+                    for a, v in agg.items() if (v["positive"] + v["negative"])], key=lambda x: -x[1])
+    strong = ", ".join(a for a, _ in rated[:2]) or "여러 속성"
+    tone = "높은 편" if ratio >= 60 else "낮은 편" if ratio <= 40 else "보통"
+    ctx = f"재구매 의향 추정 근거:\n- 전체 긍정률 {ratio}%\n- 강점 속성: {strong}"
+    ans = (f"리뷰에 '재구매'를 직접 언급한 경우는 많지 않지만, 전체 만족도(긍정률 {ratio}%)와 "
+           f"강점({strong})으로 보면 재구매 의향은 {tone}으로 추정됩니다. "
+           f"만족도가 높은 속성일수록 재구매로 이어질 가능성이 큽니다.")
+    return ctx, "repurchase", ans
+
+
 # 추천 결과 → 즉답 문장 (추천 순위·이유가 이미 계산돼 있으므로 LLM 불필요)
 def _recommend_answer(recs):
     if not recs:
@@ -234,6 +258,8 @@ def ground(d, q):
         return ctx, "aggregate", direct
     if _wants_overview(q) and not named:   # "전체 리뷰 알려줘" → 전반 개요로 즉답
         return _overview(d)
+    if _wants_repurchase(q):               # "재구매 의사 있나요?" → 만족도 기반 추정
+        return _repurchase(d)
     st = _smalltalk(q)                     # 인사·감사·도움요청 → 도우미다운 정형 응답(검색·LLM 불필요)
     if st:
         return "", "smalltalk", st
