@@ -12,7 +12,6 @@ import { BarChart3, PieChart, BarChartBig, MessageSquare, LayoutGrid, ArrowRight
     <header class="top"><span class="ic"><BarChart3 :size="18" color="#fff" /></span><b>ReviewLens</b></header>
 
     <main class="wrap">
-      <div class="label">REVIEW INSIGHT PLATFORM</div>
       <h1>리뷰를 읽고 분석해<br>실행으로 연결하는 <span class="hl">리뷰 인사이트 플랫폼</span></h1>
       <p class="lead">속성별 감성 분석과 직관적인 대시보드로 인사이트를 발견하고,<br>상담봇으로 고객의 목소리에 빠르게 응답하세요.</p>
 
@@ -79,8 +78,7 @@ import { BarChart3, PieChart, BarChartBig, MessageSquare, LayoutGrid, ArrowRight
 .top .ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#f76b8a,#f99);display:flex;align-items:center;justify-content:center}
 .top b{font-size:20px;font-weight:800}
 .wrap{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 24px 56px;text-align:center}
-.label{font-size:12.5px;font-weight:800;letter-spacing:.16em;color:#ef5e7a;background:#fde3e9;border-radius:20px;padding:7px 16px;margin-bottom:26px}
-h1{font-size:44px;font-weight:800;line-height:1.34;color:#23262e;margin-bottom:20px}
+h1{font-size:44px;font-weight:800;line-height:1.34;color:#23262e;margin:8px 0 20px}
 h1 .hl{color:#f0617e}
 .lead{font-size:16px;color:#7c828f;line-height:1.75;margin-bottom:28px}
 .features{display:flex;align-items:center;gap:18px;margin-bottom:46px;flex-wrap:wrap;justify-content:center}
