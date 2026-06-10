@@ -1,3 +1,13 @@
+---
+title: ReviewLens
+emoji: 🛍️
+colorFrom: pink
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # ReviewLens
 
 > **쇼핑 리뷰를 분석해 마케팅 실행안(광고 카피·개선 우선순위·리뷰 대응)을 자동으로 뽑아주는 AI 도구 — ML·백엔드·프런트·배포까지 풀스택 직접 구현.**
