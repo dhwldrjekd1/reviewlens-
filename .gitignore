@@ -22,7 +22,5 @@ llama/bin/
 llama/*.zip
 *.gguf
 
-# 로컬 에디터·세션 설정 (커밋 제외)
-.claude/
-CLAUDE.md
-.mcp.json
+# 로컬 전용 노트(공개 X)
+README3.md

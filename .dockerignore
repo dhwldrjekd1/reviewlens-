@@ -9,7 +9,6 @@ docs/img/
 reviewlens/data/naver_shopping.txt
 reviewlens/data/ml/
 reviewlens/models/
-reviewlens/.claude/
 *.gguf
 frontend/node_modules/
 frontend/dist/
