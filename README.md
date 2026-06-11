@@ -19,7 +19,7 @@ pinned: false
 | 👤 **담당 역할** | 기획 · UI/UX · Frontend · Backend · ML 파이프라인 · DB 설계 · 배포 — **100% 단독 구현** |
 | 📅 **기간** | 2026.06.01 ~ 06.12 (약 2주 · 1인 개발) |
 | 🧱 **핵심 스택** | Vue 3 · FastAPI · Python · SQLite/PostgreSQL · Ollama(로컬 LLM) · FAISS · KoELECTRA · Docker |
-| 🔗 **데모 / 코드** | _(배포 후 라이브 링크)_ · GitHub |
+| 🔗 **라이브 데모** | **[huggingface.co/spaces/dongyuns/reviewlens](https://huggingface.co/spaces/dongyuns/reviewlens)** (HF Spaces · 무료 CPU) |
 
 > **한 줄 결과** — 실제 네이버 리뷰 **3,000건** 자동 분석(별점 일치 87.2%) · **AI 광고카피·리뷰답글 자동 생성** · 실시간 VOC 대시보드 · **CPU 단독 배포**(외부 API 비용 0).
 
