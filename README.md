@@ -1,25 +1,24 @@
----
-title: ReviewLens
-emoji: 🛍️
-colorFrom: pink
-colorTo: indigo
-sdk: docker
-app_port: 7860
-pinned: false
----
-
 # ReviewLens
 
 > **쇼핑 리뷰를 분석해 마케팅 실행안(광고 카피·개선 우선순위·리뷰 대응)을 자동으로 뽑아주는 AI 도구 — ML·백엔드·프런트·배포까지 풀스택 직접 구현.**
 
-**제작: 최동윤** — 광고·마케팅 도메인 **풀스택 개발자** 포트폴리오
+**제작: 최동윤** · 광고·마케팅 도메인 **풀스택 개발자** 포트폴리오
 
-| 항목 | 내용 |
+[![Live Demo](https://img.shields.io/badge/Live_Demo-HF_Spaces-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/spaces/dongyuns/reviewlens)
+
+![Vue](https://img.shields.io/badge/Vue-3-42b883?logo=vuedotjs&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![RAG](https://img.shields.io/badge/RAG-ko--sroberta_%2B_FAISS-7952B3)
+![Ollama](https://img.shields.io/badge/Ollama-local_LLM-000000?logo=ollama&logoColor=white)
+![DB](https://img.shields.io/badge/SQLite_%2F_Postgres-003B57?logo=sqlite&logoColor=white)
+![KoELECTRA](https://img.shields.io/badge/KoELECTRA-sentiment-FF6F00)
+
+| | |
 |---|---|
-| 👤 **담당 역할** | 기획 · UI/UX · Frontend · Backend · ML 파이프라인 · DB 설계 · 배포 — **100% 단독 구현** |
+| 👤 **담당** | 기획 · UI/UX · Frontend · Backend · ML 파이프라인 · DB 설계 · 배포 — **100% 단독 구현** |
 | 📅 **기간** | 2026.06.01 ~ 06.12 (약 2주 · 1인 개발) |
-| 🧱 **핵심 스택** | Vue 3 · FastAPI · Python · SQLite/PostgreSQL · Ollama(로컬 LLM) · FAISS · KoELECTRA · Docker |
-| 🔗 **라이브 데모** | **[huggingface.co/spaces/dongyuns/reviewlens](https://huggingface.co/spaces/dongyuns/reviewlens)** (HF Spaces · 무료 CPU) |
 
 > **한 줄 결과** — 실제 네이버 리뷰 **3,000건** 자동 분석(별점 일치 87.2%) · **AI 광고카피·리뷰답글 자동 생성** · 실시간 VOC 대시보드 · **CPU 단독 배포**(외부 API 비용 0).
 
