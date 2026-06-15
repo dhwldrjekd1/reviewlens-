@@ -22,5 +22,7 @@ llama/bin/
 llama/*.zip
 *.gguf
 
-# 로컬 전용 노트(공개 X)
+# 로컬 전용 노트(공개 X) — 쉬운설명·개발일지·면접노트는 비공개, 공개는 README.md만
+README1.md
+README2.md
 README3.md
