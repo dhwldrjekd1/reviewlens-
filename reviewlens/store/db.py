@@ -56,6 +56,13 @@ def _to_pg_ddl(stmt):
                 .replace("default current_timestamp", "default (current_timestamp::text)"))
 
 
+def _dec(v):
+    """psycopg3 3.3+ 에서 text 컬럼이 bytes로 반환되는 경우 str로 디코드."""
+    if isinstance(v, (bytes, memoryview)):
+        return bytes(v).decode("utf-8")
+    return v
+
+
 class _Result:
     """잠금 안에서 미리 fetch한 행을 들고, sqlite 커서처럼 fetchall/fetchone/순회를 지원."""
     def __init__(self, rows): self._rows = rows
@@ -76,7 +83,7 @@ class _PgConn:
         with self._lock:
             cur = self._c.cursor()
             cur.execute(_to_pg(sql), params or None)
-            rows = cur.fetchall() if cur.description else []   # SELECT면 행, INSERT/DELETE면 []
+            rows = [tuple(_dec(v) for v in r) for r in cur.fetchall()] if cur.description else []
             cur.close()
             return _Result(rows)
 

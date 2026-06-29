@@ -710,7 +710,8 @@ def build_replies(d, model=None):
     model = model or MODEL          # 답글은 짧으니 빠른 gemma3:4b
     n, seen = 0, set()
     rows = d.execute("select distinct r.review_id, i.name, r.raw_text "
-                     "from aspect_sentiment a join review r using(review_id) join item i using(item_id) "
+                     "from aspect_sentiment a join review r on a.review_id=r.review_id "
+                     "join item i on a.item_id=i.item_id "
                      "where a.sentiment='negative'").fetchall()
     for rid, name, text in rows:
         if rid in seen:

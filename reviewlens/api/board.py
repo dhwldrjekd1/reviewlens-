@@ -68,8 +68,9 @@ def board():  # 대시보드 전 탭이 쓰는 실데이터 집계(가공 0, 전
     # 인용: 부정(부정 속성 보유 리뷰) + AI 답글 초안, 긍정(부정 0인 리뷰)
     negq = []
     for rid, t, c in d.execute(
-            "select distinct r.review_id, r.raw_text, i.category from aspect_sentiment a join review r using(review_id) "
-            "join item i using(item_id) where a.sentiment='negative' limit 4"):
+            "select distinct r.review_id, r.raw_text, i.category from aspect_sentiment a "
+            "join review r on a.review_id=r.review_id "
+            "join item i on a.item_id=i.item_id where a.sentiment='negative' limit 4"):
         rep = d.execute("select reply from review_reply where review_id=?", (rid,)).fetchone()
         negq.append({"text": t, "meta": c, "reply": rep[0] if rep else ""})
     posq = [{"text": t, "meta": c} for t, c in d.execute(
