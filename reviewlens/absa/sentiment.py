@@ -1,5 +1,3 @@
-import os
-os.environ.setdefault("HF_HOME", r"D:\hf-cache")  # 모델 캐시는 D드라이브로
 from transformers import pipeline
 from absa.aspect_rules import clauses, detect, strip_conj  # 속성 추출은 공유 규칙
 

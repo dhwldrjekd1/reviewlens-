@@ -13,8 +13,8 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 MODEL_NAME = "jhgan/ko-sroberta-multitask"
-# ko-sroberta는 기본(C:) HF hub 캐시에 있음. sentiment.py가 전역 HF_HOME=D:를 잡아도
-# 같은 프로세스(eval 등)에서 재다운로드되지 않게 캐시 위치를 명시 고정.
+# HF_HOME이 다른 값으로 설정된 세션(예: Docker)에서도, 이미 기본 캐시에 받아둔 모델을
+# 재다운로드하지 않도록 캐시 위치를 명시 고정.
 _CACHE = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")
 _model = None
 
