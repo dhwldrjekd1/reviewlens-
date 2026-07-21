@@ -1,5 +1,5 @@
 import csv, os
-import db, sentiment
+from absa import sentiment
 
 D = os.path.dirname(__file__)
 
@@ -22,12 +22,12 @@ def rule_preds():
     return {(int(rid), a, s) for rid, t in rows for a, s, _, _ in sentiment.analyze(t)}
 
 def clf_preds():  # 규칙 속성 + 학습된 감성 분류기 (속성 추출은 규칙과 동일)
-    import absa_clf
+    from absa import absa_clf
     rows = load("reviews.csv", ["review_id", "text"])
     return {(int(rid), a, s) for rid, t in rows for a, s, _, _ in absa_clf.analyze(t)}
 
 def llm_preds():  # LLM(Ollama) 직접 실행 — 느려서 'llm' 인자 줄 때만
-    import absa_llm
+    from absa import absa_llm
     out = set()
     for rid, t in load("reviews.csv", ["review_id", "text"]):
         try:  # 리뷰 1건 실패해도 전체가 죽지 않게

@@ -5,6 +5,7 @@ import Bar from '../../components/Bar.vue'
 import { TIPS, CARD_CLS, CARD_TAG } from '../../lib/viz.js'
 
 const props = defineProps({ board: Object })
+const emit = defineEmits(['go'])
 const ICONS = { Info, Headphones, Wrench, Tag, Package, Truck, Sparkles }
 const iss = computed(() => props.board.issues)
 const a = computed(() => props.board.aspects)
@@ -42,7 +43,7 @@ const pri = computed(() => iss.value.slice(0, 4))
   <div class="panel">
     <div class="phead"><h3>추천 전략 (부정 이슈 기반)</h3></div>
     <div class="scards">
-      <div v-for="(c, i) in cards" :key="i" class="scard" :class="c.cls">
+      <div v-for="(c, i) in cards" :key="i" class="scard" :class="c.cls" @click="emit('go', 'review')">
         <div class="ic"><component :is="c.icon" :size="24" /></div>
         <span class="tag" :class="c.tagCls">{{ c.tagLabel }}</span>
         <h4>{{ c.title }}</h4><p>{{ c.desc }} (부정 {{ c.count }}건)</p>
@@ -80,4 +81,8 @@ const pri = computed(() => iss.value.slice(0, 4))
 .ctext{flex:1;color:#3a3f48;line-height:1.5}
 .ctext b{color:#e0517a;font-weight:700}
 @media(max-width:900px){.crow{flex-wrap:wrap}.cname{width:auto}.ctext{flex-basis:100%}}
+@media(max-width:540px){
+  .crow{gap:8px;padding:11px 4px;font-size:13px}
+  .ctags{flex-wrap:wrap}
+}
 </style>
