@@ -1,8 +1,8 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import { RouterLink } from 'vue-router'
-import { ArrowLeft, Bot, Plus, Send, Search } from 'lucide-vue-next'
-import { chatStream } from '../api.js'
+import { ArrowLeft, Bot, Plus, Send, Search, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
+import { chatStream, sendFeedback } from '../api.js'
 
 const KEY = 'rl_chat'
 const CHIPS = ['개선점이 뭐야?', '강점·셀링포인트는?', '광고 카피 추천해줘', '전체 리뷰 요약해줘', '가성비 좋은 거 추천']
@@ -26,7 +26,7 @@ async function ask(text) {
   input.value = ''
   busy.value = true
   messages.value.push({ role: 'u', text: q })
-  const bot = { role: 'a', text: '', ev: '', intent: '', evN: 0 }
+  const bot = { role: 'a', text: '', ev: '', intent: '', evN: 0, q, fb: null, showCorr: false, corrText: '', fbBusy: false }
   messages.value.push(bot)
   save(); scrollDown()
   let started = false
@@ -39,6 +39,22 @@ async function ask(text) {
     })
   } catch (e) { bot.text = '응답을 받지 못했어요. (서버/Ollama 확인)' }
   busy.value = false; save(); scrollDown()
+}
+// 👍는 바로 전송, 👎는 정정 입력창을 먼저 연다(정정이 있어야 recall_corrections에 반영되므로)
+function vote(m, v) {
+  if (m.fb || m.fbBusy) return
+  if (v === 'down') { m.showCorr = true; return }
+  submitFeedback(m, 'up')
+}
+async function submitFeedback(m, v, correction = '') {
+  m.fbBusy = true
+  try {
+    await sendFeedback({ q: m.q, answer: m.text, vote: v, correction })
+    m.fb = v
+    m.showCorr = false
+  } catch (e) { /* 피드백은 부가 기능 - 실패해도 대화 자체는 계속 가능해야 함 */ }
+  m.fbBusy = false
+  save()
 }
 function newChat() { messages.value = []; save() }
 onMounted(() => { load(); scrollDown() })
@@ -71,6 +87,22 @@ onMounted(() => { load(); scrollDown() })
               <div v-if="m.ev" class="ev">
                 <div class="t"><Search :size="13" /> 근거 리뷰</div>
                 <div v-for="(line, j) in m.ev.split('\n').filter(Boolean)" :key="j" class="r">{{ line }}</div>
+              </div>
+              <div v-if="m.text && !busy" class="fb">
+                <template v-if="!m.fb">
+                  <span class="fq">이 답변이 도움이 됐나요?</span>
+                  <button class="fbtn" :disabled="m.fbBusy" title="좋아요" @click="vote(m, 'up')"><ThumbsUp :size="14" /></button>
+                  <button class="fbtn" :disabled="m.fbBusy" title="별로예요" @click="vote(m, 'down')"><ThumbsDown :size="14" /></button>
+                </template>
+                <span v-else class="fdone">
+                  <ThumbsUp v-if="m.fb === 'up'" :size="13" /><ThumbsDown v-else :size="13" />
+                  피드백 감사합니다!
+                </span>
+              </div>
+              <div v-if="m.showCorr" class="corr">
+                <input v-model="m.corrText" placeholder="어떻게 답했어야 할까요? (선택 입력)" :disabled="m.fbBusy"
+                  @keydown.enter="submitFeedback(m, 'down', m.corrText)" />
+                <button :disabled="m.fbBusy" @click="submitFeedback(m, 'down', m.corrText)">제출</button>
               </div>
             </div>
           </div>
@@ -113,6 +145,17 @@ onMounted(() => { load(); scrollDown() })
 .msg.a .ev{margin-top:10px;background:#fff;border:1px solid #e9ecf2;border-radius:11px;padding:11px 13px;font-size:11.5px;color:#7a8090}
 .msg.a .ev .t{font-weight:700;color:#555;margin-bottom:6px;display:flex;align-items:center;gap:5px}
 .msg.a .ev .r{padding:3px 0;border-top:1px dashed #eaedf2}
+.fb{display:flex;align-items:center;gap:7px;margin-top:10px}
+.fb .fq{font-size:11.5px;color:#9aa0ac}
+.fbtn{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border:1px solid #e6e9ef;background:#fff;border-radius:8px;color:#9aa0ac;cursor:pointer;transition:.12s}
+.fbtn:hover:not(:disabled){border-color:#f3c3cf;color:#d9526e;background:#fdf1f4}
+.fbtn:disabled{opacity:.5;cursor:default}
+.fdone{display:flex;align-items:center;gap:5px;font-size:11.5px;color:#1fbf8f;font-weight:700}
+.corr{display:flex;gap:7px;margin-top:9px}
+.corr input{flex:1;border:1px solid #e6e9ef;border-radius:10px;padding:8px 12px;font-size:12.5px;outline:0;background:#fff}
+.corr input:focus{border-color:#f3c3cf}
+.corr button{border:0;border-radius:10px;padding:0 14px;background:#f5566f;color:#fff;font-size:12px;font-weight:700;cursor:pointer}
+.corr button:disabled{opacity:.5;cursor:default}
 .chips{display:flex;flex-wrap:wrap;gap:9px;padding:0 24px 14px;background:#fff}
 .chips span{font-size:13px;border:1px solid #e6e9ef;border-radius:20px;padding:9px 16px;color:#5a6170;cursor:pointer;background:#fff;transition:.12s}
 .chips span:hover{background:#fdf1f4;border-color:#f3c3cf;color:#d9526e}

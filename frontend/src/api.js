@@ -6,6 +6,17 @@ export async function getBoard() {
   return r.json()
 }
 
+// 챗봇 답변 피드백(👍/👎 + 정정) — correction이 있으면 이후 비슷한 질문에 우선 반영됨(recall_corrections)
+export async function sendFeedback({ q, answer, vote, correction = '' }) {
+  const r = await fetch('/api/feedback', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q, answer, vote, correction }),
+  })
+  if (!r.ok) throw new Error('feedback failed')
+  return r.json()
+}
+
 // 챗봇 스트리밍(NDJSON) — onToken/onReplace/onEvidence 콜백으로 토큰 전달
 export async function chatStream(q, { onToken, onReplace, onEvidence, onMeta } = {}) {
   const res = await fetch('/api/chat/stream', {
