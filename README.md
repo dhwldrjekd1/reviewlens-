@@ -314,6 +314,12 @@ RL_DB=postgres python -m uvicorn app:app
 | `absa_nikl_train.py`가 동작 안 함 | 국립국어원 말뭉치(라이선스)는 미포함 → `json/`에 직접 넣어야 함(선택 기능) |
 | 디스크 부족 | LLM 모델이 큼(수 GB). 안 쓰는 Ollama 모델은 `ollama rm <이름>`으로 정리 |
 | **인사이트 요약 공유**가 복사 안 됨 | 클립보드 API는 보안 컨텍스트 전용 → `localhost`·`https`에서만 동작(일반 `http`는 브라우저가 차단). **보고서 다운로드는 어디서나** 동작 |
+| `python -m absa.absa_clf` / `python -m chat.retriever` 직접 실행 시 `AttributeError: module 'db' has no attribute 'get_db'` | 리팩터링 전 모듈 경로(`import db`)가 우연히 이름이 같은 `reviewlens/db/`(SQLite 파일이 든 디렉터리)를 패키지로 잘못 임포트해서 발생. `from store import db`로 수정 (`eval.py`와 동일 원인) |
+| 챗봇 답변의 👍/👎를 눌러도 아무 반응 없음(예전 대화 기록에서만) | 피드백 기능 추가 전 `localStorage`에 저장된 메시지는 원본 질문(`q`)이 없어 요청이 조용히 실패(422 → 빈 catch). 원본 질문이 없는 메시지는 피드백 UI 자체를 숨기도록 수정 |
+| 모바일 화면 상단바가 CSS 수정과 다르게 보임 | `dashboard.css`의 `@media(max-width:540px)` 블록이 중복 선언되어 일부 규칙이 서로 다른 값으로 겹쳐 있었음. 하나로 병합(현재 렌더링 결과는 그대로 유지) |
+| 부정 리뷰가 없거나 속성이 1개뿐인 데이터셋에서 전략·알림·리뷰분석 탭이 흰 화면 | `board.aspects`/`board.issues` 배열을 무가드로 인덱싱하던 3곳(StrategyTab/AlertTab/ReviewTab)에 방어 코드 추가 |
+| 상품명 언급하며 "재구매 의사 있어?" / "카피 추천해줘" / "답글 써줘"라고 물으면 그냥 일반 상품 요약만 나옴 | `ground()`가 상품명 매칭 시 재구매/카피/답글 의도 체크보다 먼저 일반 요약을 반환해버리던 문제. 해당 함수들에 상품 필터(`iid`)를 추가하고 분기 순서 수정 |
+| 👍/👎 피드백을 남겨도 확인할 방법이 없음 | 저장만 되고 조회 API가 없었음. `GET /api/feedback/stats` 추가, 설정 탭에 집계·반영된 정정 목록 표시 |
 
 ---
 
