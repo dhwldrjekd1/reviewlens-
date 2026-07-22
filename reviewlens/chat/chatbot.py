@@ -6,7 +6,7 @@ from absa import aspect_rules
 
 ASPECTS = ["배송", "품질", "가격", "포장", "디자인", "CS"]
 MODEL = "gemma3:4b"          # 라이브 챗봇(빠름). 한국어 품질 우수, 답변 캐시·사전계산으로 즉답
-SUMMARY_MODEL = "gemma4:12b"  # 오프라인 상품요약 전용(품질 최상). 12B라 느리지만 빌드 1회뿐 → 라이브 무영향
+SUMMARY_MODEL = "gemma3:4b"   # 오프라인 상품요약 전용. 빌드 1회뿐 → 라이브 무영향
 _THINKING = ("gemma4", "qwen3")  # 추론(thinking) 모델 → think off 안 하면 영어 사고를 출력에 흘림
 REVIEW_MIN_SCORE = 0.45  # 의미검색 폴백 관련도 하한 — 오타·미등록상품·난센스에 엉뚱한 상품 단정 방지
 
@@ -216,10 +216,12 @@ def _overview(d):                           # 전체 리뷰 개요 — 규모·�
     return ctx, "overview", ans
 
 
-def _repurchase(d):                         # 재구매 의향 — 리뷰 직접 언급이 적어 만족도로 추정
+def _repurchase(d, iid=None):               # 재구매 의향 — 리뷰 직접 언급이 적어 만족도로 추정 (iid 있으면 그 상품만)
+    where = "where item_id=?" if iid else ""
+    params = (iid,) if iid else ()
     agg = {}
-    for a, s, c in d.execute("select aspect, sentiment, count(*) from aspect_sentiment "
-                             "group by aspect, sentiment").fetchall():
+    for a, s, c in d.execute(f"select aspect, sentiment, count(*) from aspect_sentiment {where} "
+                             "group by aspect, sentiment", params).fetchall():
         agg.setdefault(a, {"positive": 0, "negative": 0})[s] = c
     tot_pos = sum(v["positive"] for v in agg.values())
     tot = tot_pos + sum(v["negative"] for v in agg.values())
@@ -268,9 +270,13 @@ def _improve(d):                            # 개선 우선순위 — 부정 건
     return ctx, "improve", ans
 
 
-def _copy_suggest(d):                       # 광고 카피 — 사전계산된 product_copy 노출
-    rows = d.execute("select i.name, p.copy from product_copy p join item i using(item_id) "
-                     "where p.copy is not null and trim(p.copy)!='' limit 3").fetchall()
+def _copy_suggest(d, iid=None):             # 광고 카피 — 사전계산된 product_copy 노출 (iid 있으면 그 상품만)
+    if iid:
+        rows = d.execute("select i.name, p.copy from product_copy p join item i using(item_id) "
+                         "where p.item_id=? and p.copy is not null and trim(p.copy)!='' limit 1", (iid,)).fetchall()
+    else:
+        rows = d.execute("select i.name, p.copy from product_copy p join item i using(item_id) "
+                         "where p.copy is not null and trim(p.copy)!='' limit 3").fetchall()
     if not rows:
         return "", "copy", "광고 카피가 아직 생성되지 않았어요. (빌드 시 자동 생성됩니다)"
     ctx = "리뷰 강점 기반 광고 카피:\n" + "\n".join(f"- ({n}) {c}" for n, c in rows)
@@ -280,9 +286,13 @@ def _copy_suggest(d):                       # 광고 카피 — 사전계산된 
     return ctx, "copy", ans
 
 
-def _reply_suggest(d):                      # 부정 리뷰 답글 초안 노출
-    rows = d.execute("select r.raw_text, rr.reply from review_reply rr join review r using(review_id) "
-                     "where rr.reply is not null and trim(rr.reply)!='' limit 2").fetchall()
+def _reply_suggest(d, iid=None):            # 부정 리뷰 답글 초안 노출 (iid 있으면 그 상품 리뷰만)
+    if iid:
+        rows = d.execute("select r.raw_text, rr.reply from review_reply rr join review r using(review_id) "
+                         "where r.item_id=? and rr.reply is not null and trim(rr.reply)!='' limit 2", (iid,)).fetchall()
+    else:
+        rows = d.execute("select r.raw_text, rr.reply from review_reply rr join review r using(review_id) "
+                         "where rr.reply is not null and trim(rr.reply)!='' limit 2").fetchall()
     if not rows:
         return "", "reply", "리뷰 답글이 아직 생성되지 않았어요. (빌드 시 자동 생성됩니다)"
     ctx = "부정 리뷰 답글 초안:\n" + "\n".join(f"- 리뷰: {t}\n  답글: {rp}" for t, rp in rows)
@@ -325,6 +335,12 @@ def ground(d, q):
             return _proscons(d, iid, name, q)
         if asps:                           # 특정 상품 + 속성 ("○○ 배송 어때?")
             return _product_aspect(d, iid, name, asps)
+        if _wants_repurchase(q):           # 특정 상품 + "재구매 의사 있나요?" → 그 상품 기준 추정
+            return _repurchase(d, iid)
+        if _wants_copy(q):                 # 특정 상품 + "광고 문구/카피 추천" → 그 상품 카피
+            return _copy_suggest(d, iid)
+        if _wants_reply(q):                # 특정 상품 + "부정 리뷰 답글" → 그 상품 리뷰 답글
+            return _reply_suggest(d, iid)
         direct = _product_direct(d, iid)   # 그 외 → 사전계산 요약
         if direct:
             return _product_ctx(d, iid), "product", direct
@@ -334,11 +350,11 @@ def ground(d, q):
         return ctx, "aggregate", direct
     if _wants_overview(q) and not named:   # "전체 리뷰 알려줘" → 전반 개요로 즉답
         return _overview(d)
-    if _wants_repurchase(q):               # "재구매 의사 있나요?" → 만족도 기반 추정
+    if _wants_repurchase(q) and not named: # 상품 안 정한 "재구매 의사 있나요?" → 전체 기준 추정
         return _repurchase(d)
-    if _wants_copy(q):                     # "광고 문구/카피 추천" → 사전생성 카피
+    if _wants_copy(q) and not named:       # 상품 안 정한 "광고 문구/카피 추천" → 전체 사전생성 카피
         return _copy_suggest(d)
-    if _wants_reply(q):                    # "부정 리뷰 답글" → 답글 초안
+    if _wants_reply(q) and not named:      # 상품 안 정한 "부정 리뷰 답글" → 전체 답글 초안
         return _reply_suggest(d)
     if _wants_improve(q) and not named:    # "개선점/문제점" → 개선 우선순위
         return _improve(d)

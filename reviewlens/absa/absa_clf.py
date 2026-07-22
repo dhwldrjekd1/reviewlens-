@@ -50,7 +50,8 @@ def analyze(text):
 
 
 if __name__ == "__main__":
-    import sys, db
+    import sys
+    from store import db
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     for t, in db.get_db().execute("select raw_text from review limit 5"):

@@ -13,7 +13,7 @@ const posr = computed(() => k.value.pos_ratio)
 const negr = computed(() => Math.round((100 - k.value.pos_ratio) * 10) / 10)
 const posArc = computed(() => Math.round(posr.value / 100 * 339))
 const byMention = computed(() => [...a.value].sort((x, y) => (y.pos + y.neg) - (x.pos + x.neg)))
-const maxM = computed(() => byMention.value[0].pos + byMention.value[0].neg)
+const maxM = computed(() => byMention.value.length ? byMention.value[0].pos + byMention.value[0].neg : 0)
 const revs = computed(() => [
   ...q.value.pos.slice(0, 2).map((x) => ({ ...x, g: true })),
   ...q.value.neg.slice(0, 2).map((x) => ({ ...x, g: false })),

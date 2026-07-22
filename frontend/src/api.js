@@ -17,6 +17,13 @@ export async function sendFeedback({ q, answer, vote, correction = '' }) {
   return r.json()
 }
 
+// 챗봇 피드백 집계(👍/👎 개수 + 실제 반영된 정정 목록) — 설정 탭에서 조회
+export async function getFeedbackStats() {
+  const r = await fetch('/api/feedback/stats', { cache: 'no-store' })
+  if (!r.ok) throw new Error('feedback stats fetch failed')
+  return r.json()
+}
+
 // 챗봇 스트리밍(NDJSON) — onToken/onReplace/onEvidence 콜백으로 토큰 전달
 export async function chatStream(q, { onToken, onReplace, onEvidence, onMeta } = {}) {
   const res = await fetch('/api/chat/stream', {

@@ -38,3 +38,23 @@ def chat_stream(body: Q):  # 토큰 스트리밍(NDJSON) — 체감 속도↑
 def feedback(body: FB):
     chatbot.record_feedback(d, body.q, body.answer, body.vote, body.correction)
     return {"ok": True}
+
+
+# 지금까지 쌓인 👍/👎 집계 + 실제 반영된(정정 문구 있는) 최근 교정 목록 — 설정 탭에서 조회용
+@router.get("/feedback/stats")
+def feedback_stats():
+    up = down = 0
+    for vote, c in d.execute("select vote, count(*) from feedback group by vote").fetchall():
+        if vote == "up":
+            up = c
+        elif vote == "down":
+            down = c
+    rows = d.execute(
+        "select question, correction, created from feedback "
+        "where correction is not null and trim(correction)!='' "
+        "order by created desc limit 20"
+    ).fetchall()
+    return {
+        "up": up, "down": down,
+        "corrections": [{"q": q, "correction": c, "created": t} for q, c, t in rows],
+    }

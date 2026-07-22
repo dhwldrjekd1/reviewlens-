@@ -88,7 +88,7 @@ onMounted(() => { load(); scrollDown() })
                 <div class="t"><Search :size="13" /> 근거 리뷰</div>
                 <div v-for="(line, j) in m.ev.split('\n').filter(Boolean)" :key="j" class="r">{{ line }}</div>
               </div>
-              <div v-if="m.text && !busy" class="fb">
+              <div v-if="m.text && m.q && !busy" class="fb">
                 <template v-if="!m.fb">
                   <span class="fq">이 답변이 도움이 됐나요?</span>
                   <button class="fbtn" :disabled="m.fbBusy" title="좋아요" @click="vote(m, 'up')"><ThumbsUp :size="14" /></button>

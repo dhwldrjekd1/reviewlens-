@@ -32,6 +32,7 @@
 .hero .ring .t{font-size:14.5px;opacity:.92}.hero .ring .v{font-size:43px;font-weight:800;margin:2px 0}.hero .ring .d{font-size:13.5px;opacity:.92}
 @media(max-width:1150px){.hero .ring{right:30px}}
 .row{display:grid;gap:18px}.r3{grid-template-columns:1fr 1fr 1fr}.r2{grid-template-columns:1fr 1fr}
+.row-15{grid-template-columns:1.5fr 1fr}.row-16{grid-template-columns:1.6fr 1fr}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;box-shadow:0 1px 2px rgba(30,40,70,.04),0 6px 20px rgba(30,40,70,.05);transition:box-shadow .18s;display:flex;flex-direction:column}.panel:hover{box-shadow:0 6px 26px rgba(30,40,70,.10)}
 .phead{display:flex;align-items:center;margin-bottom:18px}.phead h3{font-size:20px;font-weight:800}
 .phead .i{color:#c2c6cf;margin-left:5px;font-size:15px;display:flex}.phead .more{margin-left:auto;font-size:13.5px;color:#9aa0ac;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
@@ -64,6 +65,7 @@
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:7px}
 .oppmap{width:100%;display:block;flex:1}.oppmap text{font-weight:600}
 @media(max-width:1100px){.r3{grid-template-columns:1fr 1fr}}
+.mob-ham{display:none}
 @media(max-width:820px){
   .app{flex-direction:column}
   .side{width:auto;flex-direction:row;align-items:center;gap:6px;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:10px 12px}
@@ -73,6 +75,45 @@
   .top{padding:12px 16px;flex-wrap:wrap}.wrap{padding:8px 16px 28px}
   .hero{padding:26px 22px}.hero h1{font-size:28px}.hero p{font-size:15px}
   .hero .ring{position:static;transform:none;margin:18px auto 0;width:140px;height:140px}
-  .r3,.r2{grid-template-columns:1fr}
+  .r3,.r2,.row-15,.row-16{grid-template-columns:1fr}
+}
+@media(max-width:540px){
+  /* 사이드바 → 로고 + 햄버거 고정 헤더 */
+  .side{overflow:hidden;flex-wrap:wrap;padding:10px 14px;position:sticky;top:0;z-index:100;background:#fff}
+  .side .logo{margin:0;font-size:17px}
+  .mob-ham{display:flex;align-items:center;justify-content:center;margin-left:auto;background:none;border:none;cursor:pointer;color:#444;padding:4px}
+  /* nav 기본 숨김 → 햄버거 열면 펼침 */
+  .side .nav{display:none;width:100%;flex-direction:column;border-top:1px solid var(--line);padding-top:6px;margin-top:6px;gap:0}
+  .side.mob-open .nav{display:flex}
+  .side.mob-open .nav a{white-space:normal;padding:11px 10px;font-size:14.5px}
+  /* TopBar 정리 */
+  .top{padding:10px 12px;gap:8px}
+  .top .pill{display:none;font-size:12.5px;padding:8px 10px;gap:6px}
+  .share{font-size:13px;padding:10px 14px;gap:0}
+  .share svg{display:block}
+  /* 콘텐츠 */
+  .wrap{padding:6px 10px 24px;gap:12px}
+  .panel{padding:16px 14px;border-radius:14px}
+  .phead h3{font-size:17px}
+  .hero{padding:20px 16px;border-radius:16px}
+  .hero h1{font-size:20px;margin-bottom:10px}
+  .hero p{font-size:13.5px}
+  .hero .ring{width:120px;height:120px}
+  .hero .ring .v{font-size:34px}
+  .snap{flex-direction:column;align-items:center;gap:16px}
+  .gauge{width:148px;height:148px}
+  .gauge .ctr .v{font-size:28px}
+  .snap .alist{width:100%}
+  .snap .arow{font-size:14px}
+  .snap .arow .nm{width:78px}
+  .snap .arow .sc{font-size:16px;width:32px}
+  .arow .nm{width:78px}
+  .tabhead h2{font-size:22px}
+  .tabhead p{font-size:13.5px}
+  .scard{min-width:0}
+  .phead .more{font-size:12px;padding:3px 8px}
+  .issue{font-size:14px}
+  .issue .pc,.issue .dl{width:44px;font-size:12.5px}
+  .scards{flex-direction:column}
 }
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#2b2f38;color:#fff;padding:11px 18px;border-radius:11px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(30,40,70,.25);z-index:99}

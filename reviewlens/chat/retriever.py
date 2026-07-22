@@ -83,7 +83,8 @@ def keyword_search(db, query, k=3):
 
 
 if __name__ == "__main__":
-    import sys, db
+    import sys
+    from store import db
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     d = db.get_db()

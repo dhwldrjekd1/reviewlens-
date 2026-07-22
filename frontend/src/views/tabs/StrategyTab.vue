@@ -14,6 +14,12 @@ const iss = computed(() => props.board.issues)
 const q = computed(() => props.board.quotes)
 
 const dash = computed(() => Math.round((k.value.pos_ratio / 100) * 339))
+// 속성이 2개 미만이거나 이슈가 하나도 없으면(부정 리뷰 없는 데이터셋 등) 히어로 카피를 안전하게 생략
+const heroCopy = computed(() => {
+  if (a.value.length < 2 || !iss.value.length) return null
+  return { top1: a.value[0].name, top1Score: a.value[0].score, top2: a.value[1].name,
+    worst: a.value[a.value.length - 1].name, issueAspect: iss.value[0].aspect }
+})
 const PAL = { 전자: ['#bcd6f5', '#3a78c8'], 주방: ['#bfe9d7', '#1a9c79'], 패션: ['#f6c0cb', '#d23a5a'],
   생활: ['#f7dcae', '#c8870f'], 리빙: ['#c7ecdd', '#1a9c79'], 스포츠: ['#f7cdb8', '#cf6a3c'] }
 const bubbles = computed(() => {
@@ -39,7 +45,8 @@ const negQ = computed(() => q.value.neg.slice(0, 1))
   <section class="hero">
     <div class="label">REVIEW INSIGHT</div>
     <h1>리뷰가 가리키는<br>개선 우선순위가 보입니다.</h1>
-    <p>{{ a[0].name }}·{{ a[1].name }} 만족도가 높고({{ a[0].score }}점), <b>{{ a[a.length - 1].name }}·{{ iss[0].aspect }}</b> 개선 여지가 큽니다.<br>전체 긍정 응답률은 {{ k.pos_ratio }}% 입니다.</p>
+    <p v-if="heroCopy">{{ heroCopy.top1 }}·{{ heroCopy.top2 }} 만족도가 높고({{ heroCopy.top1Score }}점), <b>{{ heroCopy.worst }}·{{ heroCopy.issueAspect }}</b> 개선 여지가 큽니다.<br>전체 긍정 응답률은 {{ k.pos_ratio }}% 입니다.</p>
+    <p v-else>전체 긍정 응답률은 {{ k.pos_ratio }}% 입니다.</p>
     <div class="ring"><span class="t">긍정 응답률</span><span class="v">{{ k.pos_ratio }}%</span><span class="d">긍정 {{ k.pos }} / 전체 {{ k.labels }}</span></div>
   </section>
 
