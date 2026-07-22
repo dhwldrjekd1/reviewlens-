@@ -1,24 +1,37 @@
 """SQLite → Postgres 데이터 복사. ABSA를 다시 안 돌리고 기존 데이터를 옮길 때.
 
   사전: docker compose up -d  (Postgres가 떠 있어야 함)
-  사용: python db_migrate.py
+  사용: reviewlens/ 에서 python -m store.db_migrate  (store가 패키지로 잡히려면 -m 실행 필요)
 
 db.py의 _PgConn/_to_pg 어댑터를 그대로 써서, 같은 SQL이 양쪽에서 도는 걸 보여준다.
 """
-import sys, sqlite3
+import sys, sqlite3, re
 from store import db as dbmod
 
 if hasattr(sys.stdout, "reconfigure"):       # Windows 콘솔(cp949) 한글/대시 깨짐 방지
     sys.stdout.reconfigure(encoding="utf-8")
 
-# 테이블 → 복사할 컬럼(serial id 컬럼은 제외, 대상에서 자동 생성)
-TABLES = {
-    "item":             ["item_id", "name", "category"],
-    "review":           ["review_id", "item_id", "raw_text", "rating"],
-    "aspect_sentiment": ["review_id", "item_id", "aspect", "sentiment", "confidence", "evidence"],
-    "product_summary":  ["item_id", "summary"],
-    "feedback":         ["question", "answer", "vote", "correction"],
-}
+
+# 테이블 → 복사할 컬럼을 db.SCHEMA에서 직접 추출(수기 목록이었을 때 새 테이블 추가를 깜빡하는 문제 방지).
+# 제외 대상: autoincrement 대체키(대상에서 새로 채번), default current_timestamp 컬럼(대상에서 새로 찍음).
+def _derive_tables(schema):
+    tables = {}
+    for name, body in re.findall(r"create table if not exists (\w+)\(\s*(.*?)\s*\);",
+                                  schema, re.IGNORECASE | re.DOTALL):
+        cols = []
+        for col_def in body.split(","):
+            col_def = col_def.strip()
+            if not col_def:
+                continue
+            low = col_def.lower()
+            if "autoincrement" in low or "default current_timestamp" in low:
+                continue
+            cols.append(col_def.split()[0])
+        tables[name] = cols
+    return tables
+
+
+TABLES = _derive_tables(dbmod.SCHEMA)
 
 
 def main():

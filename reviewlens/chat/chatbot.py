@@ -1,4 +1,4 @@
-import json, re, os, urllib.request
+import json, re, os, threading, urllib.request
 from store import db
 from recommend import recommend_live
 from chat import retriever
@@ -389,7 +389,8 @@ def record_feedback(d, q, answer="", vote="", correction=""):
               (q, answer, vote, correction))
     d.commit()
     if correction and correction.strip():
-        _CACHE.clear(); _EXACT.clear()   # 정정이 들어오면 캐시 무효화 → 다음엔 정정 반영해 재생성
+        with _CACHE_LOCK:                # clear 두 단계가 요청 스레드끼리 끼어들지 않도록
+            _CACHE.clear(); _EXACT.clear()   # 정정이 들어오면 캐시 무효화 → 다음엔 정정 반영해 재생성
 
 
 # --- 답변 캐시: 같은/비슷한 질문은 생성 결과를 재사용 → 즉시 응답(품질 동일, CPU 생성 생략) ---
@@ -398,6 +399,7 @@ def record_feedback(d, q, answer="", vote="", correction=""):
 _EXACT = {}          # 정규화 질문 → (answer, evidence)
 _CACHE = []          # [{"emb": 질문벡터, "answer": 답변, "evidence": 근거}]
 _CACHE_THR = 0.94    # 의미 유사도 임계치(높게 → 엉뚱한 재사용 방지)
+_CACHE_LOCK = threading.Lock()   # _EXACT/_CACHE는 요청 스레드끼리 동시 접근 → 읽기/쓰기/clear 전부 이 락으로 직렬화
 
 
 def _norm(q):
@@ -405,14 +407,16 @@ def _norm(q):
 
 
 def _cache_get(q):
-    e = _EXACT.get(_norm(q))             # 완전일치 → 임베딩 없이 즉시
-    if e:
-        return {"answer": e[0], "evidence": e[1], "intent": e[2] if len(e) > 2 else "review"}
-    if not _CACHE:
-        return None
-    qe = retriever.get_model().encode([q], normalize_embeddings=True)[0]
+    with _CACHE_LOCK:
+        e = _EXACT.get(_norm(q))             # 완전일치 → 임베딩 없이 즉시
+        if e:
+            return {"answer": e[0], "evidence": e[1], "intent": e[2] if len(e) > 2 else "review"}
+        if not _CACHE:
+            return None
+        cache_snapshot = list(_CACHE)
+    qe = retriever.get_model().encode([q], normalize_embeddings=True)[0]   # 임베딩 계산은 락 밖에서(오래 걸림)
     best, score = None, 0.0
-    for c in _CACHE:
+    for c in cache_snapshot:
         s = float(c["emb"] @ qe)
         if s > score:
             score, best = s, c
@@ -422,11 +426,12 @@ def _cache_get(q):
 def _cache_put(q, answer, evidence, intent="review"):
     if not answer or _bad_lang(answer):     # 깨진 답변은 캐시하지 않음
         return
-    _EXACT[_norm(q)] = (answer, evidence, intent)
     emb = retriever.get_model().encode([q], normalize_embeddings=True)[0]
-    _CACHE.append({"emb": emb, "answer": answer, "evidence": evidence, "intent": intent})
-    if len(_CACHE) > 200:
-        _CACHE.pop(0)
+    with _CACHE_LOCK:
+        _EXACT[_norm(q)] = (answer, evidence, intent)
+        _CACHE.append({"emb": emb, "answer": answer, "evidence": evidence, "intent": intent})
+        if len(_CACHE) > 200:
+            _CACHE.pop(0)
 
 
 # 근거 항목 수(배지용): '- '로 시작하는 줄, 없으면 비어있지 않은 줄 수

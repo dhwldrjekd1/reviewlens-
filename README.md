@@ -291,7 +291,7 @@ python -m uvicorn app:app
 
 # Postgres로 전환 (Docker)
 docker compose up -d                 # Postgres 컨테이너 기동
-python reviewlens/db_migrate.py      # SQLite 데이터 → Postgres 복사 (ABSA 재실행 불필요)
+cd reviewlens && python -m store.db_migrate   # SQLite 데이터 → Postgres 복사 (ABSA 재실행 불필요)
 RL_DB=postgres python -m uvicorn app:app
 ```
 
@@ -318,6 +318,7 @@ RL_DB=postgres python -m uvicorn app:app
 | 챗봇 답변의 👍/👎를 눌러도 아무 반응 없음(예전 대화 기록에서만) | 피드백 기능 추가 전 `localStorage`에 저장된 메시지는 원본 질문(`q`)이 없어 요청이 조용히 실패(422 → 빈 catch). 원본 질문이 없는 메시지는 피드백 UI 자체를 숨기도록 수정 |
 | 모바일 화면 상단바가 CSS 수정과 다르게 보임 | `dashboard.css`의 `@media(max-width:540px)` 블록이 중복 선언되어 일부 규칙이 서로 다른 값으로 겹쳐 있었음. 하나로 병합(현재 렌더링 결과는 그대로 유지) |
 | 부정 리뷰가 없거나 속성이 1개뿐인 데이터셋에서 전략·알림·리뷰분석 탭이 흰 화면 | `board.aspects`/`board.issues` 배열을 무가드로 인덱싱하던 3곳(StrategyTab/AlertTab/ReviewTab)에 방어 코드 추가 |
+| Postgres 마이그레이션 후 상품 카피·리뷰 답글이 사라짐 | `db_migrate.py`의 복사 대상 테이블 목록을 `SCHEMA`와 별도로 수기 관리하다 `product_copy`·`review_reply` 테이블 추가를 반영 안 해 누락됨. `TABLES`를 `SCHEMA`에서 자동 파생하도록 수정 + 둘이 어긋나면 즉시 실패하는 회귀 테스트(`tests/test_db_migrate.py`) 추가. `docker compose up -d` → `python -m store.db_migrate`로 실제 이관해 7개 테이블(품목 15·리뷰 55·속성감성 101·상품카피 14·리뷰답글 22행 등)이 SQLite와 정확히 일치함을 확인, 마이그레이션된 Postgres로 앱을 띄워 `/api/board` 응답까지 검증함 |
 | 상품명 언급하며 "재구매 의사 있어?" / "카피 추천해줘" / "답글 써줘"라고 물으면 그냥 일반 상품 요약만 나옴 | `ground()`가 상품명 매칭 시 재구매/카피/답글 의도 체크보다 먼저 일반 요약을 반환해버리던 문제. 해당 함수들에 상품 필터(`iid`)를 추가하고 분기 순서 수정 |
 | 👍/👎 피드백을 남겨도 확인할 방법이 없음 | 저장만 되고 조회 API가 없었음. `GET /api/feedback/stats` 추가, 설정 탭에 집계·반영된 정정 목록 표시 |
 

@@ -1,25 +1,8 @@
 from fastapi import APIRouter
-from store import db
-from recommend import recommend_live
 from api.deps import d
 
 # 대시보드·분석 API (실데이터 집계)
 router = APIRouter(prefix="/api", tags=["board"])
-
-
-@router.get("/summary")
-def summary():
-    return [{"name": n, "aspect": a, "pos": p, "neg": g} for n, a, p, g in db.summary(d)]
-
-
-@router.get("/stats")
-def stats():  # 대시보드 KPI용 실데이터 집계
-    n_rev = d.execute("select count(*) from review").fetchone()[0]
-    n_item = d.execute("select count(*) from item").fetchone()[0]
-    pos, tot = d.execute("select sum(sentiment='positive'), count(*) from aspect_sentiment").fetchone()
-    neg = d.execute("select count(*) from aspect_sentiment where sentiment='negative'").fetchone()[0]
-    return {"reviews": n_rev, "items": n_item,
-            "pos_ratio": round(100 * pos / tot, 1) if tot else 0, "neg": neg}
 
 
 @router.get("/board")
@@ -78,10 +61,3 @@ def board():  # 대시보드 전 탭이 쓰는 실데이터 집계(가공 0, 전
         "(select review_id from aspect_sentiment group by review_id having sum(sentiment='negative')=0) limit 3")]
     return {"kpi": kpi, "aspects": asp, "categories": cats, "issues": issues,
             "products": prods, "cat_avg": cat_avg, "quotes": {"pos": posq, "neg": negq}}
-
-
-@router.get("/recommend")
-def rec(prefs: str = "배송,가격"):
-    pr = {a: 1 for a in prefs.split(",") if a}
-    return [{"name": n, "score": round(s, 2), "why": [{"aspect": a, "pos": int(p * 100)} for a, p in w]}
-            for s, n, w in recommend_live.recommend(d, pr)]

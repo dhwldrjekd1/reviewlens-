@@ -104,6 +104,8 @@ def get_db():
     else:
         os.makedirs(os.path.dirname(DB), exist_ok=True)
         db = sqlite3.connect(DB, check_same_thread=False)  # FastAPI 스레드에서도 쓰게
+        db.execute("PRAGMA journal_mode=WAL")     # 읽기 여러 개 + 쓰기 1개 동시 허용(파일에 영구 저장됨)
+        db.execute("PRAGMA busy_timeout=5000")    # 잠금 충돌 시 예외 대신 최대 5초 대기 후 재시도(커넥션별 설정, 매번 필요)
     db.executescript(SCHEMA)
     return db
 
