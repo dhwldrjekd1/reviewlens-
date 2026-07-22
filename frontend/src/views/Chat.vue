@@ -26,7 +26,7 @@ async function ask(text) {
   input.value = ''
   busy.value = true
   messages.value.push({ role: 'u', text: q })
-  const bot = { role: 'a', text: '', ev: '', intent: '', evN: 0, q, fb: null, showCorr: false, corrText: '', fbBusy: false }
+  const bot = { role: 'a', text: '', ev: '', intent: '', evN: 0, q, fb: null, showCorr: false, corrText: '', fbBusy: false, err: '' }
   messages.value.push(bot)
   save(); scrollDown()
   let started = false
@@ -37,8 +37,13 @@ async function ask(text) {
       onReplace: (full) => { bot.text = full },
       onEvidence: (ev) => { bot.ev = ev },
     })
-  } catch (e) { bot.text = '응답을 받지 못했어요. (서버/Ollama 확인)' }
-  busy.value = false; save(); scrollDown()
+  } catch (e) {
+    // 스트림이 중간에 끊겨도 이미 받은 답변(bot.text)은 그대로 두고, 에러는 별도 표시만 한다
+    if (started) bot.err = '응답이 중간에 끊겼어요. 위 내용까지만 표시됩니다.'
+    else bot.text = '응답을 받지 못했어요. (서버/Ollama 확인)'
+  } finally {
+    busy.value = false; save(); scrollDown()
+  }
 }
 // 👍는 바로 전송, 👎는 정정 입력창을 먼저 연다(정정이 있어야 recall_corrections에 반영되므로)
 function vote(m, v) {
@@ -84,6 +89,7 @@ onMounted(() => { load(); scrollDown() })
             <div class="body">
               <div v-if="m.intent" class="ibadge">{{ intentLabel(m.intent) }}<span v-if="m.evN" class="n"> · 근거 {{ m.evN }}</span></div>
               <span>{{ m.text || '…' }}</span>
+              <div v-if="m.err" class="err">{{ m.err }}</div>
               <div v-if="m.ev" class="ev">
                 <div class="t"><Search :size="13" /> 근거 리뷰</div>
                 <div v-for="(line, j) in m.ev.split('\n').filter(Boolean)" :key="j" class="r">{{ line }}</div>
@@ -142,6 +148,7 @@ onMounted(() => { load(); scrollDown() })
 .msg.a .body b{color:#f0617e;font-weight:700}
 .msg.a .ibadge{display:inline-block;font-size:11px;font-weight:700;color:#c2486a;background:#fde7ec;border:1px solid #f7cdd8;border-radius:7px;padding:2px 8px;margin-bottom:8px;white-space:normal}
 .msg.a .ibadge .n{color:#a98;font-weight:600}
+.msg.a .err{margin-top:8px;font-size:12px;color:#c0392b}
 .msg.a .ev{margin-top:10px;background:#fff;border:1px solid #e9ecf2;border-radius:11px;padding:11px 13px;font-size:11.5px;color:#7a8090}
 .msg.a .ev .t{font-weight:700;color:#555;margin-bottom:6px;display:flex;align-items:center;gap:5px}
 .msg.a .ev .r{padding:3px 0;border-top:1px dashed #eaedf2}

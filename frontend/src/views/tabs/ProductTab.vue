@@ -9,7 +9,7 @@ const catAvg = computed(() => props.board.cat_avg)
 </script>
 
 <template>
-  <div class="row" style="grid-template-columns:1.5fr 1fr;align-items:start">
+  <div class="row row-15" style="align-items:start">
     <div class="panel">
       <div class="phead"><h3>상품별 만족도</h3><span class="more">{{ products.length }}개 상품</span></div>
       <div class="alist">

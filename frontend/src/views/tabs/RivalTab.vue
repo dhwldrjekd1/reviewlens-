@@ -14,7 +14,7 @@ const dn = computed(() => a.value.filter((x) => x.score < base.value).length)
 </script>
 
 <template>
-  <div class="row" style="grid-template-columns:1.5fr 1fr;align-items:start">
+  <div class="row row-15" style="align-items:start">
     <div class="panel">
       <div class="phead"><h3>속성별 벤치마크</h3><span class="more" style="border:0">속성 점수 vs 전체 평균({{ base }})</span></div>
       <div class="alist">

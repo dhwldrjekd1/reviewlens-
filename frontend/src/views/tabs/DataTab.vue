@@ -5,7 +5,7 @@ const k = computed(() => props.board.kpi)
 </script>
 
 <template>
-  <div class="row" style="grid-template-columns:1.6fr 1fr;align-items:start">
+  <div class="row row-16" style="align-items:start">
     <div class="panel">
       <div class="phead"><h3>데이터 소스</h3></div>
       <div class="issues">

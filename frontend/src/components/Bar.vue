@@ -15,3 +15,9 @@ defineProps({
     <span class="sc">{{ value }}{{ suffix }}</span>
   </div>
 </template>
+
+<style scoped>
+@media(max-width:540px){
+  .nm{width:64px !important;font-size:13px}
+}
+</style>

@@ -1,12 +1,15 @@
 <script setup>
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   BarChart3, LayoutDashboard, MessageSquare, Package, Users, TrendingUp,
-  Megaphone, Bot, Bell, Database, Settings, Download, ArrowRight, ChevronDown,
+  Megaphone, Bot, Bell, Database, Settings, Download, ArrowRight, ChevronDown, Menu, X,
 } from 'lucide-vue-next'
 
 defineProps({ active: String, period: String })
 const emit = defineEmits(['go', 'download'])
+
+const mobOpen = ref(false)
 
 const NAV = [
   { v: 'strategy', label: '전략 보드', icon: LayoutDashboard },
@@ -23,21 +26,30 @@ const NAV3 = [
   { v: 'data', label: '데이터 관리', icon: Database },
   { v: 'setting', label: '설정', icon: Settings },
 ]
+
+function goTab(v) {
+  emit('go', v)
+  mobOpen.value = false
+}
 </script>
 
 <template>
-  <aside class="side">
+  <aside class="side" :class="{ 'mob-open': mobOpen }">
     <RouterLink class="logo" to="/"><span class="ic"><BarChart3 :size="16" color="#fff" /></span>ReviewLens</RouterLink>
+    <button class="mob-ham" @click="mobOpen = !mobOpen">
+      <X v-if="mobOpen" :size="20" />
+      <Menu v-else :size="20" />
+    </button>
     <nav class="nav">
-      <a v-for="n in NAV" :key="n.v" :class="{ on: active === n.v }" @click="emit('go', n.v)">
+      <a v-for="n in NAV" :key="n.v" :class="{ on: active === n.v }" @click="goTab(n.v)">
         <component :is="n.icon" :size="18" /> {{ n.label }}
       </a>
       <RouterLink to="/cs"><Bot :size="18" /> CS 챗봇 ↗</RouterLink>
-      <a v-for="n in NAV2" :key="n.v" :class="{ on: active === n.v }" @click="emit('go', n.v)">
+      <a v-for="n in NAV2" :key="n.v" :class="{ on: active === n.v }" @click="goTab(n.v)">
         <component :is="n.icon" :size="18" /> {{ n.label }}
       </a>
       <div class="sep"></div>
-      <a v-for="n in NAV3" :key="n.v" :class="{ on: active === n.v }" @click="emit('go', n.v)">
+      <a v-for="n in NAV3" :key="n.v" :class="{ on: active === n.v }" @click="goTab(n.v)">
         <component :is="n.icon" :size="18" /> {{ n.label }}
       </a>
     </nav>
