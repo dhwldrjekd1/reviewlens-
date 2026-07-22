@@ -267,7 +267,7 @@ python -m uvicorn app:app # 웹 UI (localhost:8000) — FastAPI가 frontend/dist
 ### 테스트
 순수 로직(모델·Ollama 불필요) 단위테스트 — DB 방언 변환·속성 추출·챗봇 의도 라우팅:
 ```bash
-cd reviewlens && pip install pytest && python -m pytest tests/ -q   # 19 passed
+cd reviewlens && pip install pytest && python -m pytest tests/ -q   # 22 passed
 ```
 
 ---
@@ -333,7 +333,7 @@ reviewlens/
 ├─ eval.py         [엔트리] gold 대비 ABSA 3-way F1 측정
 │
 ├─ api/            HTTP 라우터 (도메인별 분리)
-│  ├─ board.py        /api/summary·stats·board·recommend (분석/대시보드)
+│  ├─ board.py        /api/board (분석/대시보드)
 │  ├─ chat.py         /api/chat·chat/stream·feedback (챗봇)
 │  └─ deps.py         공유 DB 커넥션
 ├─ store/          데이터 계층
