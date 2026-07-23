@@ -37,9 +37,11 @@ function go(v) {
   if (location.hash.slice(1) !== v) history.replaceState(null, '', '#' + v)
   window.scrollTo(0, 0)
 }
+let toastTimer = null
 function toast(msg) {
+  clearTimeout(toastTimer)   // 연달아 호출 시 이전 타이머가 새 토스트를 조기에 지우는 것 방지
   toastMsg.value = msg
-  setTimeout(() => { toastMsg.value = '' }, 1900)
+  toastTimer = setTimeout(() => { toastMsg.value = '' }, 1900)
 }
 function downloadReport() {
   const b = board.value

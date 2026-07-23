@@ -4,11 +4,12 @@
 ABSA(규칙 속성추출 + 학습 분류기, `absa_clf`)를 돌리고, **별점을 약지도(weak label)**로
 '아스펙트 감성 ↔ 별점 극성' 일치도를 측정한다. → ABSA가 실데이터 규모에서 작동함을 확인.
 
-  사용: python absa_real.py [N]      (기본 3000건 샘플, seed 고정)
+  사용: reviewlens/ 에서 python -m absa.absa_real [N]      (기본 3000건 샘플, seed 고정)
 """
 import os, sys, random
 from collections import Counter
 from absa import absa_clf
+from train.sentiment_finetune import download   # naver_shopping.txt 없으면 받아옴(train 스크립트와 공유 데이터)
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -31,6 +32,7 @@ def load(n):
 
 
 def main(n=3000):
+    download()
     rows = load(n)
     asp_cnt = Counter()
     polarity = {}                       # aspect → [pos, neg]
@@ -50,9 +52,12 @@ def main(n=3000):
     for a, c in asp_cnt.most_common():
         p, ng = polarity[a]
         print(f"{a:<8}{c:>7}{100*p/(p+ng):>7.0f}%")
-    print(f"\n별점-감성 일치도(weak label, 별점 4↑=긍정·2↓=부정): "
-          f"{agree}/{total} = {100*agree/total:.1f}%")
-    print("→ 데모 55리뷰가 아닌 '실제 리뷰 수천 건'에서도 ABSA가 별점과 높게 일치함을 확인.")
+    if total:
+        print(f"\n별점-감성 일치도(weak label, 별점 4↑=긍정·2↓=부정): "
+              f"{agree}/{total} = {100*agree/total:.1f}%")
+        print("→ 데모 55리뷰가 아닌 '실제 리뷰 수천 건'에서도 ABSA가 별점과 높게 일치함을 확인.")
+    else:
+        print("\n별점-감성 일치도: 샘플에 4↑/2↓ 별점 리뷰가 없거나 속성이 추출되지 않아 계산 불가(N을 늘려 재시도)")
 
 
 if __name__ == "__main__":

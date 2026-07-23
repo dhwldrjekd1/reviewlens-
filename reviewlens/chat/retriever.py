@@ -36,12 +36,17 @@ class ReviewIndex:
         # rows: [(review_id, item_id, name, text), ...]
         import faiss
         self.meta = rows
+        self.index = None
+        if not rows:      # pipeline.py를 아직 안 돌려 review가 비어있는 상태 — 인덱스 없이 빈 결과로 폴백
+            return
         texts = [r[3] for r in rows]
         emb = get_model().encode(texts, normalize_embeddings=True).astype("float32")
         self.index = faiss.IndexFlatIP(emb.shape[1])
         self.index.add(emb)
 
     def search(self, query, k=3):
+        if self.index is None:
+            return []
         qv = get_model().encode([query], normalize_embeddings=True).astype("float32")
         scores, ids = self.index.search(qv, min(k, len(self.meta)))
         out = []

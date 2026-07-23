@@ -12,7 +12,7 @@ CPU 제약 때문에 전체 파인튜닝(인코더 weight 갱신) 대신 **linea
 즉 ABSA의 '감성 분류' 정확도를 올리는 단계이고, '속성 추출'은 규칙/LLM이 담당.
 진짜 속성별 파인튜닝은 속성 라벨 데이터(CARBD-Ko 등)가 필요 — 다음 단계.
 """
-import os, sys, urllib.request
+import os, sys, hashlib, urllib.request
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
@@ -55,7 +55,10 @@ def load(n_per_class=8000, rng=None):
 def embed_cached(texts, tag):
     """ko-sroberta 임베딩 (인코더 동결). 캐시 있으면 재사용."""
     os.makedirs(MODELS, exist_ok=True)
-    cache = os.path.join(MODELS, f"emb_{tag}_{len(texts)}.npy")
+    # 캐시 키에 텍스트 내용 해시도 포함 — n_per_class를 바꿔 재실험해도 표본 수가
+    # 우연히 같아지면 옛 임베딩(다른 텍스트)을 조용히 재사용하는 걸 방지
+    fp = hashlib.md5("\n".join(texts).encode("utf-8")).hexdigest()[:10]
+    cache = os.path.join(MODELS, f"emb_{tag}_{len(texts)}_{fp}.npy")
     if os.path.exists(cache):
         return np.load(cache)
     from chat import retriever  # ko-sroberta 싱글톤 재사용

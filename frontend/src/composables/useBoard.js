@@ -11,7 +11,7 @@ export function useBoard() {
     if (!promise) {
       promise = getBoard()
         .then((b) => { board.value = b; return b })
-        .catch((e) => { error.value = e; throw e })
+        .catch((e) => { error.value = e; promise = null; throw e })   // 실패 시 다음 load() 호출이 재시도할 수 있게 캐시를 비움
     }
     return promise
   }

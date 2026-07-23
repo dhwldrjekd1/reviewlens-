@@ -46,6 +46,9 @@ if __name__ == "__main__":
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
     docs = load_docs()
+    if not docs:
+        raise SystemExit(f"쇼핑 도메인({SHOP_DOMAINS})과 일치하는 문서가 0건 — "
+                          f"말뭉치의 domain 필드 값을 확인하세요")
     cats = Counter(c for d in docs for c, _ in d["opinions"])
     pols = Counter(p for d in docs for _, p in d["opinions"])
     print(f"쇼핑 도메인 문서: {len(docs)}  | 의견(opinion) 총 {sum(len(d['opinions']) for d in docs)}")

@@ -6,7 +6,7 @@ CPU 제약상 전체 파인튜닝 대신 linear probing: ko-sroberta 임베딩(�
 
 데이터는 라이선스상 비공개(.gitignore). 결과(F1)와 코드만 공개.
 """
-import os, sys
+import os, sys, hashlib
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 import numpy as np
 from absa import absa_nikl
@@ -39,13 +39,19 @@ def main():
         if lab:
             texts.append(d["text"])
             labels.append(lab)
+    if not texts:
+        raise SystemExit(f"MIN_COUNT={MIN_COUNT} 이상 출현하는 카테고리가 있는 문서가 0건 — "
+                          f"MIN_COUNT를 낮추거나 말뭉치 domain 필터를 확인하세요")
     print(f"문서 {len(texts)}  카테고리 {len(cats)}개 (출현 {MIN_COUNT}회 이상)")
 
     mlb = MultiLabelBinarizer(classes=cats)
     Y = mlb.fit_transform(labels)
 
     os.makedirs(MODELS, exist_ok=True)
-    cache = os.path.join(MODELS, f"nikl_emb_{len(texts)}.npy")
+    # 캐시 키에 텍스트 내용 해시도 포함 — MIN_COUNT/SHOP_DOMAINS를 바꿔 재실험해도
+    # 문서 수가 우연히 같아지면 옛 임베딩을 조용히 재사용하는 걸 방지
+    fp = hashlib.md5("\n".join(texts).encode("utf-8")).hexdigest()[:10]
+    cache = os.path.join(MODELS, f"nikl_emb_{len(texts)}_{fp}.npy")
     if os.path.exists(cache):
         X = np.load(cache)
     else:
