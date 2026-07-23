@@ -7,7 +7,7 @@ RAG 챗봇은 정답이 하나가 아니라 평가가 까다롭다. 그래서 �
   3) 근거 충실(상품) — 특정 상품 질문에 그 상품을 실제로 다루는가
   4) 지연                — 경로별 응답 시간(사전계산/캐시 효과 확인)
 
-  실행:  python chat_eval.py
+  실행:  reviewlens/ 에서 python -m chat.chat_eval
 """
 import sys, time
 from store import db

@@ -19,7 +19,7 @@ def head():
     global _head
     if _head is None:
         if not os.path.exists(HEAD):
-            raise FileNotFoundError("학습 분류기 없음 → 먼저 `python sentiment_finetune.py` 실행")
+            raise FileNotFoundError("학습 분류기 없음 → 먼저 (reviewlens/ 에서) `python -m train.sentiment_finetune` 실행")
         import joblib
         _head = joblib.load(HEAD)
     return _head

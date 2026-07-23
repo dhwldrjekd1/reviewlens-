@@ -321,6 +321,12 @@ RL_DB=postgres python -m uvicorn app:app
 | Postgres 마이그레이션 후 상품 카피·리뷰 답글이 사라짐 | `db_migrate.py`의 복사 대상 테이블 목록을 `SCHEMA`와 별도로 수기 관리하다 `product_copy`·`review_reply` 테이블 추가를 반영 안 해 누락됨. `TABLES`를 `SCHEMA`에서 자동 파생하도록 수정 + 둘이 어긋나면 즉시 실패하는 회귀 테스트(`tests/test_db_migrate.py`) 추가. `docker compose up -d` → `python -m store.db_migrate`로 실제 이관해 7개 테이블(품목 15·리뷰 55·속성감성 101·상품카피 14·리뷰답글 22행 등)이 SQLite와 정확히 일치함을 확인, 마이그레이션된 Postgres로 앱을 띄워 `/api/board` 응답까지 검증함 |
 | 상품명 언급하며 "재구매 의사 있어?" / "카피 추천해줘" / "답글 써줘"라고 물으면 그냥 일반 상품 요약만 나옴 | `ground()`가 상품명 매칭 시 재구매/카피/답글 의도 체크보다 먼저 일반 요약을 반환해버리던 문제. 해당 함수들에 상품 필터(`iid`)를 추가하고 분기 순서 수정 |
 | 👍/👎 피드백을 남겨도 확인할 방법이 없음 | 저장만 되고 조회 API가 없었음. `GET /api/feedback/stats` 추가, 설정 탭에 집계·반영된 정정 목록 표시 |
+| 리뷰가 0건인 상태(신규 클론 직후 `pipeline.py`를 안 돌린 경우)에서 챗봇에 자유서술형 질문을 하면 500 에러 | `retriever.py`의 `ReviewIndex`가 빈 리뷰 목록으로 FAISS 인덱스를 만들려다 `IndexError` 발생. 리뷰가 없으면 인덱스 없이 빈 검색 결과를 반환하도록 수정. 실제로 리뷰 0건 DB로 서버를 띄워 `/api/chat/stream` 호출까지 재현·검증 |
+| 대시보드가 서버 일시 오류(콜드스타트 등) 후 새로고침 전까지 "데이터를 불러오는 중…"에서 안 넘어감 | `useBoard.js`가 최초 `/api/board` fetch 실패 시 rejected promise를 그대로 캐시해 재시도를 막고 있었음. 실패하면 캐시를 비워 다음 진입에서 다시 fetch하도록 수정(성공 케이스의 캐시 재사용은 그대로 유지) |
+| 다운로드·공유 버튼을 빠르게 연달아 누르면 토스트 메시지가 1.9초보다 먼저 사라짐 | 이전 토스트의 `setTimeout`을 취소하지 않아 나중 토스트를 조기에 지웠음. 새 토스트를 띄우기 전 이전 타이머를 `clearTimeout`하도록 수정 |
+| `absa_real.py`/`absa_nikl.py`/`absa_nikl_train.py`를 작은 샘플이나 도메인 필터가 안 맞는 데이터로 돌리면 `ZeroDivisionError`로 죽음 | 통계를 내기 직전에 표본이 0건인 케이스를 가드하지 않았음. 0건이면 계산 대신 안내 메시지로 안전 종료하도록 수정, 각각 0건 시나리오를 실제로 재현해 검증 |
+| ABSA/감성분류기 임베딩 캐시가 설정을 바꿔 재실험해도(`MIN_COUNT`·`n_per_class` 등) 표본 수가 우연히 같으면 옛 캐시를 조용히 재사용 | 캐시 파일명이 텍스트 개수만 쓰고 있었음. 텍스트 내용 해시를 캐시 키에 포함하도록 수정 — 개수는 같고 내용이 다른 두 텍스트셋으로 실제 충돌 회피를 확인 |
+| `python db_migrate.py`/`python absa_real.py`/`python chat_eval.py`처럼 파일을 직접 실행하면 `ModuleNotFoundError` | 이 프로젝트의 패키지(`store`/`absa`/`chat`/`train`)는 `reviewlens/`를 루트로 하는 상대 임포트라 `-m` 플래그로 실행해야 함(예: `python -m chat.chat_eval`). docstring·에러 메시지·`docker-compose.yml` 안내에 남아있던 옛 실행법을 전부 정정 |
 
 ---
 

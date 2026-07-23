@@ -3,7 +3,6 @@
 # --- phase 1: ABSA / 챗봇 / 웹 ---
 torch            # CPU wheel: pip install torch --index-url https://download.pytorch.org/whl/cpu
 transformers
-pandas
 fastapi
 uvicorn
 # LLM은 Ollama 로컬 서버 사용 (별도 설치): ABSA=qwen2.5:3b, 챗봇/요약=gemma3:4b·gemma4:12b

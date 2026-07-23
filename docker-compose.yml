@@ -1,6 +1,6 @@
 # 선택형 Postgres 백엔드 — 로컬 개발/시연용.
 #   1) docker compose up -d            # Postgres 컨테이너 기동
-#   2) cd reviewlens && python db_migrate.py     # SQLite 데이터 → Postgres 복사
+#   2) cd reviewlens && python -m store.db_migrate     # SQLite 데이터 → Postgres 복사
 #   3) RL_DB=postgres python -m uvicorn app:app   # 앱을 Postgres로 실행
 # 기본(이 파일 없이)은 SQLite라 Docker 없이도 그대로 동작한다.
 services:
