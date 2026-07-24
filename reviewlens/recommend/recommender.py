@@ -273,7 +273,7 @@ def main(source="synthetic"):
 
 
 if __name__ == "__main__":
-    # python recommender.py            → 합성(감성 블렌딩까지)
-    # python recommender.py movielens  → 실데이터 CF 백본 검증(pop vs ALS)
+    # reviewlens/ 에서 python -m recommend.recommender            → 합성(감성 블렌딩까지)
+    # reviewlens/ 에서 python -m recommend.recommender movielens  → 실데이터 CF 백본 검증(pop vs ALS)
     src = "movielens" if (len(sys.argv) > 1 and sys.argv[1] == "movielens") else "synthetic"
     main(src)
