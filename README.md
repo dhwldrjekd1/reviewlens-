@@ -327,6 +327,7 @@ RL_DB=postgres python -m uvicorn app:app
 | `absa_real.py`/`absa_nikl.py`/`absa_nikl_train.py`를 작은 샘플이나 도메인 필터가 안 맞는 데이터로 돌리면 `ZeroDivisionError`로 죽음 | 통계를 내기 직전에 표본이 0건인 케이스를 가드하지 않았음. 0건이면 계산 대신 안내 메시지로 안전 종료하도록 수정, 각각 0건 시나리오를 실제로 재현해 검증 |
 | ABSA/감성분류기 임베딩 캐시가 설정을 바꿔 재실험해도(`MIN_COUNT`·`n_per_class` 등) 표본 수가 우연히 같으면 옛 캐시를 조용히 재사용 | 캐시 파일명이 텍스트 개수만 쓰고 있었음. 텍스트 내용 해시를 캐시 키에 포함하도록 수정 — 개수는 같고 내용이 다른 두 텍스트셋으로 실제 충돌 회피를 확인 |
 | `python db_migrate.py`/`python absa_real.py`/`python chat_eval.py`처럼 파일을 직접 실행하면 `ModuleNotFoundError` | 이 프로젝트의 패키지(`store`/`absa`/`chat`/`train`)는 `reviewlens/`를 루트로 하는 상대 임포트라 `-m` 플래그로 실행해야 함(예: `python -m chat.chat_eval`). docstring·에러 메시지·`docker-compose.yml` 안내에 남아있던 옛 실행법을 전부 정정 |
+| "부정이 가장 많은 항목이 뭐야?"처럼 자연스럽게 물으면 그냥 "관련 리뷰를 찾지 못했어요"만 나옴 | 정작 이 질문에 정확히 답하는 개선 우선순위 기능(`_improve()`)은 있었는데, 의도 판별 키워드(`_wants_improve`)에 "개선점"·"문제점" 같은 표현만 있고 "부정이 많은/가장 많은"은 빠져 있어 의미검색으로 잘못 폴백하던 문제. `부정`+`(많／가장／제일／1위／최다)` 조합을 인식하도록 추가, 실제 질문 그대로 재현·수정 확인 |
 
 ---
 

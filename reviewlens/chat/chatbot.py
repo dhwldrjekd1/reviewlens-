@@ -111,9 +111,11 @@ def _wants_overview(q):                     # "전체 리뷰 알려줘" 류 → 
     return s.startswith("리뷰") and any(k in s for k in ("알려", "보여", "줘", "어때", "말해"))
 
 
-def _wants_improve(q):                      # "개선점/문제점이 뭐야?"
+def _wants_improve(q):                      # "개선점/문제점이 뭐야?" / "부정이 가장 많은 항목은?"
     s = q.replace(" ", "")
-    return any(k in s for k in ("개선점", "개선할", "문제점", "뭘고쳐", "어디고쳐", "보완", "취약", "고칠점", "약한부분", "불만이많"))
+    if any(k in s for k in ("개선점", "개선할", "문제점", "뭘고쳐", "어디고쳐", "보완", "취약", "고칠점", "약한부분", "불만이많")):
+        return True
+    return "부정" in s and any(k in s for k in ("많", "가장", "제일", "1위", "최다"))
 
 
 def _wants_strength(q):                     # "강점/셀링포인트가 뭐야?" (상품 미지정 일반)
