@@ -7,7 +7,10 @@ _clf = None
 def clf():
     global _clf
     if _clf is None:
-        _clf = pipeline("text-classification", model=MODEL)
+        # truncation=True 없으면 문장부호 없는 긴 텍스트(스팸성 리뷰 등)가 모델의 최대
+        # 토큰 길이(512)를 넘겨 RuntimeError로 죽음 — SentenceTransformer 쪽은
+        # max_seq_length로 이미 안전하게 잘리는 것과 동일하게 맞춤
+        _clf = pipeline("text-classification", model=MODEL, truncation=True)
     return _clf
 
 def analyze(text):

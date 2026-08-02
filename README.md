@@ -328,6 +328,9 @@ RL_DB=postgres python -m uvicorn app:app
 | ABSA/감성분류기 임베딩 캐시가 설정을 바꿔 재실험해도(`MIN_COUNT`·`n_per_class` 등) 표본 수가 우연히 같으면 옛 캐시를 조용히 재사용 | 캐시 파일명이 텍스트 개수만 쓰고 있었음. 텍스트 내용 해시를 캐시 키에 포함하도록 수정 — 개수는 같고 내용이 다른 두 텍스트셋으로 실제 충돌 회피를 확인 |
 | `python db_migrate.py`/`python absa_real.py`/`python chat_eval.py`처럼 파일을 직접 실행하면 `ModuleNotFoundError` | 이 프로젝트의 패키지(`store`/`absa`/`chat`/`train`)는 `reviewlens/`를 루트로 하는 상대 임포트라 `-m` 플래그로 실행해야 함(예: `python -m chat.chat_eval`). docstring·에러 메시지·`docker-compose.yml` 안내에 남아있던 옛 실행법을 전부 정정 |
 | "부정이 가장 많은 항목이 뭐야?"처럼 자연스럽게 물으면 그냥 "관련 리뷰를 찾지 못했어요"만 나옴 | 정작 이 질문에 정확히 답하는 개선 우선순위 기능(`_improve()`)은 있었는데, 의도 판별 키워드(`_wants_improve`)에 "개선점"·"문제점" 같은 표현만 있고 "부정이 많은/가장 많은"은 빠져 있어 의미검색으로 잘못 폴백하던 문제. `부정`+`(많／가장／제일／1위／최다)` 조합을 인식하도록 추가, 실제 질문 그대로 재현·수정 확인 |
+| 문장부호 없는 긴 리뷰(스팸성 등)를 분석하면 `sentiment.py`(rule 모드)가 `RuntimeError`로 죽음 | KoELECTRA 분류기 호출에 `truncation=True`가 없어 512토큰을 넘기면 그대로 죽었음(같은 임베딩을 쓰는 `retriever.py`/`absa_clf.py`는 `max_seq_length`로 이미 안전). `pipeline("text-classification", model=MODEL, truncation=True)`로 수정, 문장부호 없는 긴 텍스트로 실제 재현·검증 |
+| `pipeline.py` 실행 중 리뷰 1건 분석이 실패하면 이미 처리한 리뷰까지 전부 유실 | 리뷰별 예외 처리 없이 커밋이 루프 끝에 딱 1번뿐이라, 하나만 실패해도 그 실행 전체가 커밋 전 날아갔음(`eval.py`는 리뷰 단위로 격리하는데 정작 실제 적재 엔트리포인트엔 이 패턴이 빠져있었음). `analyzer.analyze()` 호출을 리뷰 단위 `try/except`로 감싸 실패한 리뷰만 건너뛰도록 수정. 가짜 분석기로 3건 중 가운데 1건이 실패하는 상황을 재현해, 나머지 2건은 정상 저장되고 전체 실행도 안 죽는 것을 확인 |
+| Ollama가 JSON 스키마를 어긴 응답(빈 응답 등)을 주면 `absa_llm.py`가 원인 불명의 `JSONDecodeError`로 죽음 | `format:SCHEMA`로 강제해도 100% 보장은 아님. `json.loads()`를 try/except로 감싸 "LLM 응답이 JSON 스키마를 따르지 않음: (응답 일부)"로 원인이 보이는 에러로 전환(호출부는 이미 리뷰 단위로 이 예외를 잡아 건너뜀). 빈 응답을 흉내내 실제로 개선된 에러가 나오는 것 확인 |
 
 ---
 

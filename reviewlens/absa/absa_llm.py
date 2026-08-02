@@ -37,7 +37,14 @@ def analyze(text):
                                  {"Content-Type": "application/json"})
     res = json.loads(urllib.request.urlopen(req, timeout=180).read())
     out = []
-    for it in json.loads(res["response"]).get("results", []):
+    # format=SCHEMA로 JSON 스키마를 강제해도 모델/Ollama 버전에 따라 빈 응답이나
+    # 스키마를 어긴 응답이 나올 수 있어, 원인을 알 수 있는 메시지로 바꿔서 올린다
+    # (호출부인 pipeline.py/eval.py가 리뷰 단위로 이 예외를 잡아 건너뛴다)
+    try:
+        parsed = json.loads(res["response"]).get("results", [])
+    except (json.JSONDecodeError, AttributeError) as e:
+        raise RuntimeError(f"LLM 응답이 JSON 스키마를 따르지 않음: {res.get('response', '')[:200]!r}") from e
+    for it in parsed:
         a, s = it.get("aspect"), it.get("sentiment")
         if a in ASPECTS and s in ("positive", "negative"):  # neutral은 노이즈라 버림
             out.append((a, s, None, it.get("evidence", "")))

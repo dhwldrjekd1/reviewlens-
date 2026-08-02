@@ -33,14 +33,23 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
         d.execute("insert or replace into item(item_id,name,category) values(?,?,?)",
                   (iid, name, cat))
 
+    failed = 0
     for r in reviews():
         rid, iid = int(r["review_id"]), r["item_id"]
         d.execute("insert or replace into review(review_id,item_id,raw_text,rating) values(?,?,?,?)",
                   (rid, iid, r["text"], int(r["rating"])))
-        for aspect, senti, conf, ev in analyzer.analyze(r["text"]):
+        try:  # 리뷰 1건 분석 실패(긴 텍스트, LLM 응답 파싱 실패 등)해도 나머지가 죽지 않게
+            results = analyzer.analyze(r["text"])
+        except Exception as e:
+            failed += 1
+            print(f"[리뷰 {rid} 분석 실패, 건너뜀: {e}]")
+            continue
+        for aspect, senti, conf, ev in results:
             d.execute("insert into aspect_sentiment(review_id,item_id,aspect,sentiment,confidence,evidence)"
                       " values(?,?,?,?,?,?)", (rid, iid, aspect, senti, conf, ev))
     d.commit()
+    if failed:
+        print(f"[분석 실패 {failed}건 — 해당 리뷰는 원문만 저장되고 속성/감성은 비어있음]")
 
     print(f"\n{'상품':<16}{'속성':<6}{'긍':>4}{'부':>4}")
     print("-" * 32)
