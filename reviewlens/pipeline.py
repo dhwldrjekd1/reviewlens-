@@ -43,11 +43,15 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
         except Exception as e:
             failed += 1
             print(f"[리뷰 {rid} 분석 실패, 건너뜀: {e}]")
+            d.commit()
             continue
         for aspect, senti, conf, ev in results:
             d.execute("insert into aspect_sentiment(review_id,item_id,aspect,sentiment,confidence,evidence)"
                       " values(?,?,?,?,?,?)", (rid, iid, aspect, senti, conf, ev))
-    d.commit()
+        # 리뷰마다 커밋 — LLM 분석기라 리뷰당 수 초씩 걸릴 수 있는데, 끝까지 커밋을 미루면
+        # 그동안 SQLite 쓰기 락을 계속 쥐고 있어 같은 시간에 실행 중인 서버의 /api/feedback
+        # 같은 쓰기 요청이 락 대기 끝에 500을 받을 수 있었음
+        d.commit()
     if failed:
         print(f"[분석 실패 {failed}건 — 해당 리뷰는 원문만 저장되고 속성/감성은 비어있음]")
 

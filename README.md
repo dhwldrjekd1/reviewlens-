@@ -331,6 +331,9 @@ RL_DB=postgres python -m uvicorn app:app
 | 문장부호 없는 긴 리뷰(스팸성 등)를 분석하면 `sentiment.py`(rule 모드)가 `RuntimeError`로 죽음 | KoELECTRA 분류기 호출에 `truncation=True`가 없어 512토큰을 넘기면 그대로 죽었음(같은 임베딩을 쓰는 `retriever.py`/`absa_clf.py`는 `max_seq_length`로 이미 안전). `pipeline("text-classification", model=MODEL, truncation=True)`로 수정, 문장부호 없는 긴 텍스트로 실제 재현·검증 |
 | `pipeline.py` 실행 중 리뷰 1건 분석이 실패하면 이미 처리한 리뷰까지 전부 유실 | 리뷰별 예외 처리 없이 커밋이 루프 끝에 딱 1번뿐이라, 하나만 실패해도 그 실행 전체가 커밋 전 날아갔음(`eval.py`는 리뷰 단위로 격리하는데 정작 실제 적재 엔트리포인트엔 이 패턴이 빠져있었음). `analyzer.analyze()` 호출을 리뷰 단위 `try/except`로 감싸 실패한 리뷰만 건너뛰도록 수정. 가짜 분석기로 3건 중 가운데 1건이 실패하는 상황을 재현해, 나머지 2건은 정상 저장되고 전체 실행도 안 죽는 것을 확인 |
 | Ollama가 JSON 스키마를 어긴 응답(빈 응답 등)을 주면 `absa_llm.py`가 원인 불명의 `JSONDecodeError`로 죽음 | `format:SCHEMA`로 강제해도 100% 보장은 아님. `json.loads()`를 try/except로 감싸 "LLM 응답이 JSON 스키마를 따르지 않음: (응답 일부)"로 원인이 보이는 에러로 전환(호출부는 이미 리뷰 단위로 이 예외를 잡아 건너뜀). 빈 응답을 흉내내 실제로 개선된 에러가 나오는 것 확인 |
+| (기본 SQLite 백엔드에서) 동시 요청 시 DB 쓰기가 꼬일 위험 | `store/db.py`의 Postgres 경로(`_PgConn`)는 스레드 간 동시 사용을 `threading.Lock`으로 직렬화하는데, 기본값인 SQLite 경로는 락 없이 raw 커넥션을 그대로 돌려주고 있었음(`check_same_thread=False`만으로는 안전하지 않다고 공식 문서가 명시). 동일한 인터페이스의 `_SqliteConn` 래퍼를 추가해 락으로 보호. 스레드 30개가 동시에 insert하는 테스트로 에러 없이 전부 정확히 저장되는 것을 확인 |
+| 서버 기동 직후나 여러 사용자가 동시에 첫 질문을 하면 ko-sroberta·KoELECTRA·학습 분류기가 중복 로딩됨 | `retriever.get_model()`/`absa_clf.head()`/`sentiment.clf()` 세 곳의 지연 로딩에 락이 없었음(`chatbot.py`의 답변 캐시는 이미 락으로 보호되는 것과 비대칭). Double-checked locking으로 세 곳 모두 보호. 스레드 8개로 동시 호출해 로딩 횟수가 8회 → 1회로 줄어드는 것을 확인 |
+| `python pipeline.py` 실행 중(리뷰당 LLM 호출로 수 분 소요 가능) `/api/feedback`이 `database is locked`로 500 | 커밋이 전체 루프 끝에 딱 1번뿐이라 그동안 SQLite 쓰기 락을 계속 쥐고 있었음. 리뷰 하나 처리할 때마다 커밋하도록 수정. 파이프라인 실행 중 별도 스레드로 계속 `/api/feedback` 쓰기를 시도하는 테스트에서, 실행 내내 매번 0.01초 안팎으로 즉시 성공하는 것을 확인(수정 전이었다면 전체 실행이 끝날 때까지 대기했을 상황) |
 
 ---
 

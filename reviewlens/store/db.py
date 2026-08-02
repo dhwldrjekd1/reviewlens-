@@ -71,6 +71,34 @@ class _Result:
     def __iter__(self): return iter(self._rows)
 
 
+class _SqliteConn:
+    """sqlite3.Connection 래핑 — Postgres 경로(_PgConn)는 스레드 간 동시 사용을 잠금으로
+    직렬화하는데, 기본 백엔드인 이쪽엔 그 보호가 빠져 있었다. FastAPI 동기 핸들러는
+    스레드풀에서 실행되므로(check_same_thread=False로 스레드 자체는 허용해도), 잠금 없이
+    같은 커넥션에 여러 스레드가 동시에 execute를 호출하면 sqlite3 공식 문서가 경고하는
+    데이터 손상 위험이 있다."""
+    def __init__(self, path):
+        self._c = sqlite3.connect(path, check_same_thread=False)
+        self._lock = threading.Lock()
+        with self._lock:
+            self._c.execute("PRAGMA journal_mode=WAL")
+            self._c.execute("PRAGMA busy_timeout=5000")
+
+    def execute(self, sql, params=None):
+        with self._lock:
+            cur = self._c.execute(sql, params or ())
+            rows = cur.fetchall() if cur.description else []
+            return _Result(rows)
+
+    def executescript(self, script):
+        with self._lock:
+            self._c.executescript(script)
+
+    def commit(self):
+        with self._lock:
+            self._c.commit()
+
+
 class _PgConn:
     """sqlite3.Connection 흉내 — 코드의 d.execute(sql, params).fetchall() 패턴을 Postgres에서 그대로.
     psycopg 연결은 스레드 동시 사용이 불가하므로 잠금으로 직렬화한다(이 규모엔 충분)."""
@@ -103,9 +131,7 @@ def get_db():
         db = _PgConn(PG_DSN)
     else:
         os.makedirs(os.path.dirname(DB), exist_ok=True)
-        db = sqlite3.connect(DB, check_same_thread=False)  # FastAPI 스레드에서도 쓰게
-        db.execute("PRAGMA journal_mode=WAL")     # 읽기 여러 개 + 쓰기 1개 동시 허용(파일에 영구 저장됨)
-        db.execute("PRAGMA busy_timeout=5000")    # 잠금 충돌 시 예외 대신 최대 5초 대기 후 재시도(커넥션별 설정, 매번 필요)
+        db = _SqliteConn(DB)   # WAL + busy_timeout 설정, 스레드 간 잠금 포함(_SqliteConn 참고)
     db.executescript(SCHEMA)
     return db
 

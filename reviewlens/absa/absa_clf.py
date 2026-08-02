@@ -7,21 +7,26 @@ sentiment.py(규칙+KoELECTRA)와 '속성 추출'은 동일(aspect_rules 공유)
 학습 분류기가 없으면(models/sentiment_head.joblib) 안내 후 종료.
 analyze()는 다른 분석기와 같은 형식 (aspect, sentiment, confidence, evidence)을 반환.
 """
-import os
+import os, threading
 from absa import aspect_rules
 from chat import retriever
 
 HEAD = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models", "sentiment_head.joblib")
 _head = None
+_head_lock = threading.Lock()
 
 
 def head():
+    """학습된 감성 분류기 헤드 로드(최초 1회). retriever.get_model()과 동일한 이유로
+    동시 요청 시 중복 로딩을 막기 위해 락으로 보호."""
     global _head
     if _head is None:
-        if not os.path.exists(HEAD):
-            raise FileNotFoundError("학습 분류기 없음 → 먼저 (reviewlens/ 에서) `python -m train.sentiment_finetune` 실행")
-        import joblib
-        _head = joblib.load(HEAD)
+        with _head_lock:
+            if _head is None:
+                if not os.path.exists(HEAD):
+                    raise FileNotFoundError("학습 분류기 없음 → 먼저 (reviewlens/ 에서) `python -m train.sentiment_finetune` 실행")
+                import joblib
+                _head = joblib.load(HEAD)
     return _head
 
 

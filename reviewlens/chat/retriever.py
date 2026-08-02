@@ -8,7 +8,7 @@ phase 1 챗봇은 질문에 들어간 단어가 상품명/속성과 글자 그�
 모델·인덱스는 한 번만 만들어 재사용(lazy 싱글톤)한다.
 전부 CPU. 모델: jhgan/ko-sroberta-multitask (768차원, 경량).
 """
-import os
+import os, threading
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
@@ -17,15 +17,20 @@ MODEL_NAME = "jhgan/ko-sroberta-multitask"
 # 재다운로드하지 않도록 캐시 위치를 명시 고정.
 _CACHE = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")
 _model = None
+_model_lock = threading.Lock()
 
 
 def get_model():
-    """ko-sroberta 로드(최초 1회). import 시점이 아니라 호출 시점에 로드."""
+    """ko-sroberta 로드(최초 1회). import 시점이 아니라 호출 시점에 로드.
+    FastAPI 동기 핸들러는 스레드풀에서 실행되므로, 락 없이는 서버 기동 직후처럼
+    여러 요청이 겹치면 무거운 모델이 스레드 수만큼 중복 로딩될 수 있었음."""
     global _model
     if _model is None:
-        from sentence_transformers import SentenceTransformer
-        kw = {"cache_folder": _CACHE} if os.path.isdir(_CACHE) else {}
-        _model = SentenceTransformer(MODEL_NAME, **kw)
+        with _model_lock:
+            if _model is None:  # 락 대기 중 다른 스레드가 이미 로드했을 수 있음
+                from sentence_transformers import SentenceTransformer
+                kw = {"cache_folder": _CACHE} if os.path.isdir(_CACHE) else {}
+                _model = SentenceTransformer(MODEL_NAME, **kw)
     return _model
 
 
@@ -60,6 +65,7 @@ class ReviewIndex:
 # DB 기준 인덱스 캐시 (리뷰 수가 바뀌면 새로 빌드)
 _index = None
 _index_n = -1
+_index_lock = threading.Lock()
 
 
 def get_index(db):
@@ -68,8 +74,10 @@ def get_index(db):
         "select r.review_id, r.item_id, i.name, r.raw_text "
         "from review r join item i using(item_id)").fetchall()
     if _index is None or _index_n != len(rows):
-        _index = ReviewIndex(rows)
-        _index_n = len(rows)
+        with _index_lock:
+            if _index is None or _index_n != len(rows):  # 락 대기 중 다른 스레드가 이미 새로 빌드했을 수 있음
+                _index = ReviewIndex(rows)
+                _index_n = len(rows)
     return _index
 
 
