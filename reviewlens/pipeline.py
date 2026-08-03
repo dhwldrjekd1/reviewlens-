@@ -28,7 +28,6 @@ def reviews():
 
 def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 넘길 수 있음
     d = db.get_db()
-    d.execute("delete from aspect_sentiment")  # 재실행해도 깨끗하게
     for iid, (name, cat) in items.items():
         d.execute("insert or replace into item(item_id,name,category) values(?,?,?)",
                   (iid, name, cat))
@@ -38,6 +37,11 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
         rid, iid = int(r["review_id"]), r["item_id"]
         d.execute("insert or replace into review(review_id,item_id,raw_text,rating) values(?,?,?,?)",
                   (rid, iid, r["text"], int(r["rating"])))
+        # 리뷰마다 커밋하는 구조라, 예전처럼 맨 앞에서 전체를 한 번에 delete해두면 그 delete가
+        # 첫 리뷰의 커밋에 실려 확정되어버려서, 중간에 죽으면(Ctrl-C, 타임아웃 등) 이전 실행
+        # 데이터가 반쯤 지워진 채로 남았음. 이 리뷰의 기존 결과만 지우고 바로 새로 채워서,
+        # 이 리뷰 하나의 delete+insert가 항상 같은 커밋 안에서 원자적으로 끝나게 함
+        d.execute("delete from aspect_sentiment where review_id=?", (rid,))
         try:  # 리뷰 1건 분석 실패(긴 텍스트, LLM 응답 파싱 실패 등)해도 나머지가 죽지 않게
             results = analyzer.analyze(r["text"])
         except Exception as e:
