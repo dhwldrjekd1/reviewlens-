@@ -434,6 +434,8 @@ def _cache_put(q, answer, evidence, intent="review"):
         _CACHE.append({"emb": emb, "answer": answer, "evidence": evidence, "intent": intent})
         if len(_CACHE) > 200:
             _CACHE.pop(0)
+        if len(_EXACT) > 200:      # _CACHE와 항상 같이 채워지는데 상한이 없어 무한정 늘어나던 것을 맞춤
+            del _EXACT[next(iter(_EXACT))]   # dict는 삽입 순서를 보존하므로 가장 오래된 항목부터 제거
 
 
 # 근거 항목 수(배지용): '- '로 시작하는 줄, 없으면 비어있지 않은 줄 수

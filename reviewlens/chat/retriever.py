@@ -62,22 +62,25 @@ class ReviewIndex:
         return out
 
 
-# DB 기준 인덱스 캐시 (리뷰 수가 바뀌면 새로 빌드)
+# DB 기준 인덱스 캐시 (리뷰 내용이 바뀌면 새로 빌드)
 _index = None
-_index_n = -1
+_index_key = None
 _index_lock = threading.Lock()
 
 
 def get_index(db):
-    global _index, _index_n
+    global _index, _index_key
     rows = db.execute(
         "select r.review_id, r.item_id, i.name, r.raw_text "
         "from review r join item i using(item_id)").fetchall()
-    if _index is None or _index_n != len(rows):
+    # 리뷰 "개수"만 비교하면, 개수는 그대로인데 내용만 바뀐 경우(리뷰 수정/재적재)를
+    # 놓쳐서 옛 인덱스를 계속 반환하게 됨 — 행 전체(id+내용)를 기준으로 비교
+    key = hash(tuple(rows))
+    if _index is None or _index_key != key:
         with _index_lock:
-            if _index is None or _index_n != len(rows):  # 락 대기 중 다른 스레드가 이미 새로 빌드했을 수 있음
+            if _index is None or _index_key != key:  # 락 대기 중 다른 스레드가 이미 새로 빌드했을 수 있음
                 _index = ReviewIndex(rows)
-                _index_n = len(rows)
+                _index_key = key
     return _index
 
 
