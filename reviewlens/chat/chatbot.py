@@ -556,7 +556,8 @@ def ask_stream(d, q):
     try:  # ground() 내부(추천/집계 등)에서 데이터 정합성이 어긋나면 KeyError 등이 날 수 있음
         ctx, mode, direct = ground(d, q)
     except Exception as e:
-        yield {"token": f"(요청을 처리하는 중 오류가 발생했어요: {e})"}
+        print(f"[ground() 처리 실패: {e!r}]")  # 서버 로그에만 원인 남기고, 사용자에겐 내부 구현 노출 안 함
+        yield {"token": "질문을 처리하는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요."}
         yield {"evidence": "", "done": True}
         return
     yield {"meta": {"intent": mode, "evidence_n": _ev_count(ctx)}}  # 처리 의도·근거수(시스템 가시화)
@@ -611,7 +612,8 @@ def ask(d, q):
     try:  # ground() 내부(추천/집계 등)에서 데이터 정합성이 어긋나면 KeyError 등이 날 수 있음
         ctx, mode, direct = ground(d, q)
     except Exception as e:
-        return f"(요청을 처리하는 중 오류가 발생했어요: {e})", ""
+        print(f"[ground() 처리 실패: {e!r}]")  # 서버 로그에만 원인 남기고, 사용자에겐 내부 구현 노출 안 함
+        return "질문을 처리하는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요.", ""
     corr = recall_corrections(d, q) if (ctx or direct) else []   # 교정 메모리 반영
     if direct and not corr:                   # 즉답(스몰토크/집계/추천/상품) — LLM 생략
         if ctx:

@@ -119,7 +119,7 @@ onMounted(() => { load(); scrollDown() })
         <span v-for="c in CHIPS" :key="c" @click="ask(c)">{{ c }}</span>
       </div>
       <div class="in">
-        <input v-model="input" placeholder="궁금한 점을 입력해주세요..." @keydown.enter="ask()" :disabled="busy" />
+        <input v-model="input" placeholder="궁금한 점을 입력해주세요..." maxlength="500" @keydown.enter="ask()" :disabled="busy" />
         <button @click="ask()" :disabled="busy"><Send :size="18" /></button>
       </div>
     </div>
