@@ -553,7 +553,12 @@ def ask_stream(d, q):
         yield {"token": hit["answer"]}
         yield {"evidence": hit["evidence"], "done": True}
         return
-    ctx, mode, direct = ground(d, q)
+    try:  # ground() 내부(추천/집계 등)에서 데이터 정합성이 어긋나면 KeyError 등이 날 수 있음
+        ctx, mode, direct = ground(d, q)
+    except Exception as e:
+        yield {"token": f"(요청을 처리하는 중 오류가 발생했어요: {e})"}
+        yield {"evidence": "", "done": True}
+        return
     yield {"meta": {"intent": mode, "evidence_n": _ev_count(ctx)}}  # 처리 의도·근거수(시스템 가시화)
     corr = recall_corrections(d, q) if (ctx or direct) else []
     if direct and not corr:                  # 즉답(스몰토크/집계/추천/상품) — LLM 생략
@@ -579,10 +584,13 @@ def ask_stream(d, q):
     # 스트리밍은 사후 언어검증을 못 하므로, 끝난 뒤 한자/영어가 섞였으면 깨끗하게 재생성해 교체
     final = full
     if _bad_lang(full):
-        clean = _generate(prompt + "\n주의: 한자나 영어를 쓰지 말고 한국어 문장으로만.", 0.6, 1)
-        if not _bad_lang(clean):
-            yield {"replace": clean}
-            final = clean
+        try:
+            clean = _generate(prompt + "\n주의: 한자나 영어를 쓰지 말고 한국어 문장으로만.", 0.6, 1)
+            if not _bad_lang(clean):
+                yield {"replace": clean}
+                final = clean
+        except Exception:
+            pass  # 정리용 재생성 실패는 무시 — 이미 스트리밍한 원래 답변을 그대로 씀
     _cache_put(q, final, ctx, mode)         # 다음 동일/유사 질문은 즉시 응답
     yield {"evidence": ctx, "done": True}
 
@@ -600,7 +608,10 @@ def ask(d, q):
     hit = _cache_get(q)
     if hit:                                   # 캐시 적중 → 즉시 응답
         return hit["answer"], hit["evidence"]
-    ctx, mode, direct = ground(d, q)
+    try:  # ground() 내부(추천/집계 등)에서 데이터 정합성이 어긋나면 KeyError 등이 날 수 있음
+        ctx, mode, direct = ground(d, q)
+    except Exception as e:
+        return f"(요청을 처리하는 중 오류가 발생했어요: {e})", ""
     corr = recall_corrections(d, q) if (ctx or direct) else []   # 교정 메모리 반영
     if direct and not corr:                   # 즉답(스몰토크/집계/추천/상품) — LLM 생략
         if ctx:

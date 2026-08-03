@@ -1,7 +1,7 @@
 import json
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from chat import chatbot
 from api.deps import d
 
@@ -10,7 +10,9 @@ router = APIRouter(prefix="/api", tags=["chat"])
 
 
 class Q(BaseModel):
-    q: str
+    # 길이 제한 없이 매우 긴 문자열이 그대로 임베딩 계산·LLM 프롬프트에 들어가면
+    # 응답 지연·리소스 낭비로 이어질 수 있어 상한을 둠(자연어 질문엔 충분히 넉넉한 길이)
+    q: str = Field(min_length=1, max_length=500)
 
 
 class FB(BaseModel):
