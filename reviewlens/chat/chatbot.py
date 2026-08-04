@@ -625,7 +625,7 @@ def ask(d, q):
     corr = recall_corrections(d, q) if (ctx or direct) else []   # 교정 메모리 반영
     if direct and not corr:                   # 즉답(스몰토크/집계/추천/상품) — LLM 생략
         if ctx:
-            _cache_put(q, direct, ctx)
+            _cache_put(q, direct, ctx, mode)
         return direct, ctx
     if not ctx:                               # 관련 리뷰 못 찾음
         return "질문과 관련된 리뷰를 찾지 못했어요. 상품명이나 배송·품질 같은 속성으로 물어봐 주세요.", ""
@@ -643,7 +643,7 @@ def ask(d, q):
                 ans = cand
         if _bad_lang(ans):  # 끝내 실패: 깨진 문장 대신 근거 폴백
             return "깔끔한 한국어 답변을 만들지 못했어요. 아래 근거 리뷰를 참고해주세요.\n" + ctx, ctx
-        _cache_put(q, ans, ctx)
+        _cache_put(q, ans, ctx, mode)
         return ans, ctx
     except Exception as e:
         print(f"[LLM 생성 실패: {e!r}]")  # 서버 로그에만 원인 남기고, 사용자에겐 내부 구현 노출 안 함

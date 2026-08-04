@@ -349,6 +349,7 @@ RL_DB=postgres python -m uvicorn app:app
 | (2026.08.05) `python pipeline.py` 실행 중 리뷰 하나의 LLM 분석이 걸리는 동안에도 여전히 DB 쓰기 락을 쥐고 있어 동시 `/api/feedback` 요청이 지연됨(리뷰당 커밋으로 바꾼 이전 수정으로도 완전히 해결 안 됨) | `delete`가 `analyze()` 호출 *전에* 실행돼 그 순간부터 이미 쓰기 트랜잭션(락)이 열려 있었음. `analyze()`를 트랜잭션 밖으로 빼 결과를 먼저 확보한 뒤에만 delete+insert+commit을 짧게 실행하도록 순서 변경. 같은 문제가 `chatbot.py`의 상품요약·광고카피·리뷰답글 사전계산 함수(상품 전체 루프가 끝나야 커밋 1번)에도 있어 함께 아이템별 커밋으로 수정. 동시쓰기 스레드를 띄우는 테스트로, 수정 전엔 분석이 끝날 때까지(약 0.93초) 블로킹되던 것이 수정 후 즉시 끝나는 것을 확인(`tests/test_pipeline_lock.py`) |
 | (2026.08.05) LLM 응답 생성이 실패하면(Ollama 다운 등) 사용자에게 `(LLM 응답 생성을 건너뜀: ConnectionRefusedError...)`처럼 내부 예외가 그대로 노출됨 | `ground()` 예외는 이전에 사용자 노출 없이 로그로만 남기도록 고쳤는데, 그 뒤의 `_generate()`/`_stream_tokens()` 호출 실패는 같은 조치가 안 돼 있었음. 동일하게 서버 로그에만 원인을 남기고 사용자에겐 일반 안내 메시지로 통일(`ask`/`ask_stream` 둘 다) |
 | (2026.08.05) 스트리밍 답변을 다 받은 직후 정정 메모리 조회(`recall_corrections`)나 캐시 저장(`_cache_put`)이 실패하면 `done` 신호 없이 스트림이 그냥 끊김 | 두 호출 모두 try/except 밖에 있었음. 각각 감싸서 실패해도(정정 조회는 빈 목록으로 대체, 캐시 저장은 생략) 이미 만든 답변과 함께 `done:true`는 항상 전송되도록 수정 |
+| (2026.08.05) 비스트리밍(`/api/chat`)으로 추천·집계 같은 질문에 답한 뒤, 같은 질문을 스트리밍(`/api/chat/stream`)으로 다시 물으면 캐시에서 의도(intent)가 "리뷰 검색(RAG)"으로 잘못 표시됨 | `ask()`가 `_cache_put` 호출 두 곳(즉답 캐싱·LLM 생성 답변 캐싱) 모두 `mode` 인자를 빠뜨려 기본값 `"review"`로 저장하고 있었음(`ask_stream()`은 이미 올바르게 전달 중이었음). 두 호출 모두 `mode`를 넘기도록 수정, ground()/recall_corrections를 목으로 대체해 실제로 잘못된 intent가 저장되는 것과 수정 후 정상 저장되는 것을 재현·확인(`tests/test_chat_cache.py`) |
 
 ---
 
