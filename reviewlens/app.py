@@ -1,5 +1,5 @@
 import os, threading
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from store import db
@@ -40,6 +40,11 @@ threading.Thread(target=_prewarm, daemon=True).start()
 # (모든 API 라우트보다 뒤에 정의되어야 가로채지 않음)
 @app.get("/{full_path:path}", response_class=HTMLResponse)
 def spa(full_path: str):
+    if full_path.startswith("api/"):
+        # 이 라우트는 GET이라 위 API 라우터(POST 전용 등)와 경로가 겹치면 여기가 먼저 매치돼버려,
+        # 존재하지 않는 API 경로나 POST 전용 API에 대한 GET이 404/405 대신 200 + SPA HTML로
+        # 응답되고 있었음(오류 감지·모니터링 무력화). /api/* 는 SPA로 폴백하지 않고 404로 응답
+        raise HTTPException(status_code=404)
     index = os.path.join(DIST, "index.html")
     if os.path.exists(index):
         return HTMLResponse(open(index, encoding="utf-8").read())

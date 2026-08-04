@@ -351,6 +351,7 @@ RL_DB=postgres python -m uvicorn app:app
 | (2026.08.05) 스트리밍 답변을 다 받은 직후 정정 메모리 조회(`recall_corrections`)나 캐시 저장(`_cache_put`)이 실패하면 `done` 신호 없이 스트림이 그냥 끊김 | 두 호출 모두 try/except 밖에 있었음. 각각 감싸서 실패해도(정정 조회는 빈 목록으로 대체, 캐시 저장은 생략) 이미 만든 답변과 함께 `done:true`는 항상 전송되도록 수정 |
 | (2026.08.05) 비스트리밍(`/api/chat`)으로 추천·집계 같은 질문에 답한 뒤, 같은 질문을 스트리밍(`/api/chat/stream`)으로 다시 물으면 캐시에서 의도(intent)가 "리뷰 검색(RAG)"으로 잘못 표시됨 | `ask()`가 `_cache_put` 호출 두 곳(즉답 캐싱·LLM 생성 답변 캐싱) 모두 `mode` 인자를 빠뜨려 기본값 `"review"`로 저장하고 있었음(`ask_stream()`은 이미 올바르게 전달 중이었음). 두 호출 모두 `mode`를 넘기도록 수정, ground()/recall_corrections를 목으로 대체해 실제로 잘못된 intent가 저장되는 것과 수정 후 정상 저장되는 것을 재현·확인(`tests/test_chat_cache.py`) |
 | (2026.08.05) `/api/feedback`(인증 없음)에 매우 긴 문자열을 반복 전송하면 DB가 무한정 커지고, 이후 모든 챗봇 응답이 점점 느려짐 | `Q`(질문) 모델엔 `max_length=500`이 있는데 `FB`(피드백) 모델엔 길이 제한이 전혀 없었음. `correction`은 매 챗봇 질문마다 `recall_corrections()`가 정정 문구가 있는 전체 행을 다시 임베딩하는 구조라, 거대한 값 하나가 그 이후 모든 응답을 느리게 만들 수 있었음. `q`(500자)·`answer`(4000자)·`correction`(1000자)·`vote`(10자)에 상한 추가 |
+| (2026.08.05) 존재하지 않는 API 경로나 POST 전용 API(`/api/chat` 등)에 GET으로 접근하면 404/405 대신 200 + SPA HTML이 응답돼, 오류 모니터링이 이를 정상 요청으로 오인함 | SPA 캐치올(`GET /{full_path:path}`)이 모든 GET 요청에 매칭돼, API 라우터의 405/404보다 먼저 매치돼버림(주석엔 원래 "/api 외 모든 GET 경로"라고 의도가 적혀있었는데 실제 구현엔 그 제외 처리가 빠져있었음). `full_path`가 `api/`로 시작하면 SPA로 폴백하지 않고 404를 반환하도록 수정. `TestClient`로 `GET /api/chat`·`GET /api/존재안함`이 404로, 실제 SPA 라우트(`/dashboard`)와 실제 GET API(`/api/feedback/stats`)는 그대로 정상 응답하는 것을 확인(`tests/test_spa_fallback.py`) |
 
 ---
 
