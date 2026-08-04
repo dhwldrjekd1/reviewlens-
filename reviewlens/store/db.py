@@ -101,18 +101,31 @@ class _SqliteConn:
 
 class _PgConn:
     """sqlite3.Connection 흉내 — 코드의 d.execute(sql, params).fetchall() 패턴을 Postgres에서 그대로.
-    psycopg 연결은 스레드 동시 사용이 불가하므로 잠금으로 직렬화한다(이 규모엔 충분)."""
+    psycopg 연결은 스레드 동시 사용이 불가하므로 잠금으로 직렬화한다(이 규모엔 충분).
+    autocommit=True였을 땐 문장 하나하나가 즉시 개별 커밋돼, 호출부(pipeline.py 등)가 기대하는
+    "delete+insert가 한 커밋 안에서 원자적으로 끝남"이 실제로는 보장되지 않았다(commit()이 no-op).
+    이제 일반 트랜잭션(autocommit=False)을 쓰고 commit()이 실제로 커밋하도록 바꿔, 커밋 전에
+    죽으면 그 트랜잭션의 쓰기가 전부 롤백되어 이전 데이터가 보존된다."""
     def __init__(self, dsn):
         import psycopg
-        self._c = psycopg.connect(dsn, autocommit=True)
+        self._c = psycopg.connect(dsn)
         self._lock = threading.Lock()
 
     def execute(self, sql, params=None):
         with self._lock:
             cur = self._c.cursor()
-            cur.execute(_to_pg(sql), params or None)
-            rows = [tuple(_dec(v) for v in r) for r in cur.fetchall()] if cur.description else []
-            cur.close()
+            try:
+                cur.execute(_to_pg(sql), params or None)
+                rows = [tuple(_dec(v) for v in r) for r in cur.fetchall()] if cur.description else []
+            except Exception:
+                # Postgres는 SQLite와 달리 문장 하나가 실패하면 트랜잭션 전체가 "aborted" 상태로
+                # 잠겨 이후 문장도 전부 거부한다. 여기서 즉시 롤백해 이 커넥션을 계속 쓸 수 있게 함
+                # (이렇게 하면 실패한 문장 이전에 이 트랜잭션에서 커밋 안 된 쓰기도 함께 롤백되는데,
+                # 이는 "delete+insert 원자성" 관점에서 오히려 올바른 동작 — 절반만 반영되지 않음).
+                self._c.rollback()
+                raise
+            finally:
+                cur.close()
             return _Result(rows)
 
     def executescript(self, script):
@@ -121,9 +134,10 @@ class _PgConn:
             for stmt in filter(str.strip, script.split(";")):
                 cur.execute(_to_pg_ddl(stmt))
             cur.close()
+        self._c.commit()   # 스키마 생성(DDL)도 명시적으로 커밋해야 반영됨
 
     def commit(self):
-        pass   # autocommit=True → 명시적 commit은 무해한 no-op
+        self._c.commit()
 
 
 def get_db():

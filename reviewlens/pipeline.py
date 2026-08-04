@@ -37,24 +37,22 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
         rid, iid = int(r["review_id"]), r["item_id"]
         d.execute("insert or replace into review(review_id,item_id,raw_text,rating) values(?,?,?,?)",
                   (rid, iid, r["text"], int(r["rating"])))
-        # 리뷰마다 커밋하는 구조라, 예전처럼 맨 앞에서 전체를 한 번에 delete해두면 그 delete가
-        # 첫 리뷰의 커밋에 실려 확정되어버려서, 중간에 죽으면(Ctrl-C, 타임아웃 등) 이전 실행
-        # 데이터가 반쯤 지워진 채로 남았음. 이 리뷰의 기존 결과만 지우고 바로 새로 채워서,
-        # 이 리뷰 하나의 delete+insert가 항상 같은 커밋 안에서 원자적으로 끝나게 함
-        d.execute("delete from aspect_sentiment where review_id=?", (rid,))
+        d.commit()   # 리뷰 원문은 분석 전에 바로 커밋 — 아래 analyze()가 오래 걸려도 락을 물고 있지 않게
         try:  # 리뷰 1건 분석 실패(긴 텍스트, LLM 응답 파싱 실패 등)해도 나머지가 죽지 않게
-            results = analyzer.analyze(r["text"])
+            results = analyzer.analyze(r["text"])   # 쓰기 트랜잭션 밖에서 실행 — 수 초~분 걸려도 락 무관
         except Exception as e:
             failed += 1
             print(f"[리뷰 {rid} 분석 실패, 건너뜀: {e}]")
+            d.execute("delete from aspect_sentiment where review_id=?", (rid,))  # 이전 결과는 비움
             d.commit()
             continue
+        # analyze()가 끝난 뒤에야 delete+insert를 열어, 이 리뷰 하나의 delete+insert+commit이
+        # 항상 같은(짧은) 트랜잭션 안에서 원자적으로 끝나게 함 — 커밋 전에 죽어도 이전 데이터가
+        # 그대로 남아있고, 쓰기 락도 이 짧은 구간에만 걸려 동시 요청(/api/feedback 등)을 막지 않음
+        d.execute("delete from aspect_sentiment where review_id=?", (rid,))
         for aspect, senti, conf, ev in results:
             d.execute("insert into aspect_sentiment(review_id,item_id,aspect,sentiment,confidence,evidence)"
                       " values(?,?,?,?,?,?)", (rid, iid, aspect, senti, conf, ev))
-        # 리뷰마다 커밋 — LLM 분석기라 리뷰당 수 초씩 걸릴 수 있는데, 끝까지 커밋을 미루면
-        # 그동안 SQLite 쓰기 락을 계속 쥐고 있어 같은 시간에 실행 중인 서버의 /api/feedback
-        # 같은 쓰기 요청이 락 대기 끝에 500을 받을 수 있었음
         d.commit()
     if failed:
         print(f"[분석 실패 {failed}건 — 해당 리뷰는 원문만 저장되고 속성/감성은 비어있음]")

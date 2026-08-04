@@ -561,7 +561,11 @@ def ask_stream(d, q):
         yield {"evidence": "", "done": True}
         return
     yield {"meta": {"intent": mode, "evidence_n": _ev_count(ctx)}}  # 처리 의도·근거수(시스템 가시화)
-    corr = recall_corrections(d, q) if (ctx or direct) else []
+    try:  # 정정 메모리 조회 실패(DB/임베딩 오류 등)해도 스트림이 done 없이 끊기지 않게
+        corr = recall_corrections(d, q) if (ctx or direct) else []
+    except Exception as e:
+        print(f"[recall_corrections() 처리 실패: {e!r}]")
+        corr = []
     if direct and not corr:                  # 즉답(스몰토크/집계/추천/상품) — LLM 생략
         yield {"token": direct}
         if ctx:                              # 스몰토크(ctx 없음)는 캐시·근거 생략
@@ -579,7 +583,8 @@ def ask_stream(d, q):
             full += tok
             yield {"token": tok}
     except Exception as e:
-        yield {"token": f"(LLM 응답 생성을 건너뜀: {e})"}
+        print(f"[LLM 스트리밍 생성 실패: {e!r}]")  # 서버 로그에만 원인 남기고, 사용자에겐 내부 구현 노출 안 함
+        yield {"token": "답변을 생성하는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요."}
         yield {"evidence": ctx, "done": True}
         return
     # 스트리밍은 사후 언어검증을 못 하므로, 끝난 뒤 한자/영어가 섞였으면 깨끗하게 재생성해 교체
@@ -592,7 +597,10 @@ def ask_stream(d, q):
                 final = clean
         except Exception:
             pass  # 정리용 재생성 실패는 무시 — 이미 스트리밍한 원래 답변을 그대로 씀
-    _cache_put(q, final, ctx, mode)         # 다음 동일/유사 질문은 즉시 응답
+    try:  # 캐시 저장 실패해도 이미 스트리밍한 답변은 유효하므로 done은 반드시 보냄
+        _cache_put(q, final, ctx, mode)     # 다음 동일/유사 질문은 즉시 응답
+    except Exception as e:
+        print(f"[_cache_put() 처리 실패: {e!r}]")
     yield {"evidence": ctx, "done": True}
 
 
@@ -638,7 +646,8 @@ def ask(d, q):
         _cache_put(q, ans, ctx)
         return ans, ctx
     except Exception as e:
-        return f"(LLM 응답 생성을 건너뜀: {e})\n검색된 근거 리뷰:\n{ctx}", ctx
+        print(f"[LLM 생성 실패: {e!r}]")  # 서버 로그에만 원인 남기고, 사용자에겐 내부 구현 노출 안 함
+        return "답변을 생성하는 중 문제가 생겼어요. 아래 근거 리뷰를 참고해주세요.\n" + ctx, ctx
 
 
 # --- 오프라인 사전계산: 상품별 자연스러운 한국어 요약 (빌드 시 1회, ~상품 수만큼 LLM) ---
@@ -692,8 +701,8 @@ def build_product_summaries(d, model=None):
                     + " 의견이 많아요." for a, v in agg.items())
         d.execute("insert or replace into product_summary(item_id, summary) values(?,?)",
                   (iid, text))
+        d.commit()   # 상품마다 커밋 — 루프 전체(LLM 호출 다건)가 끝날 때까지 쓰기 락을 쥐지 않게
         n += 1
-    d.commit()
     return n
 
 
@@ -732,8 +741,8 @@ def build_marketing(d, model=None):
         copy = " · ".join(parts[:2])
         d.execute("insert or replace into product_copy(item_id, copy, basis) values(?,?,?)",
                   (iid, copy, basis))
+        d.commit()   # 상품마다 커밋 — 루프 전체(LLM 호출 다건)가 끝날 때까지 쓰기 락을 쥐지 않게
         n += 1
-    d.commit()
     return n
 
 
@@ -763,8 +772,8 @@ def build_replies(d, model=None):
         if _bad_lang(rep):
             continue
         d.execute("insert or replace into review_reply(review_id, reply) values(?,?)", (rid, rep))
+        d.commit()   # 리뷰마다 커밋 — 루프 전체(LLM 호출 다건)가 끝날 때까지 쓰기 락을 쥐지 않게
         n += 1
-    d.commit()
     return n
 
 
