@@ -16,10 +16,13 @@ class Q(BaseModel):
 
 
 class FB(BaseModel):
-    q: str
-    answer: str = ""
-    vote: str = ""          # up | down
-    correction: str = ""    # 사용자 정정 (선택)
+    # Q와 같은 이유로 상한을 둠 — 인증 없이 누구나 호출 가능한 엔드포인트라 제한이 없으면
+    # DB가 무한정 커지고, correction은 매 챗봇 질문마다 recall_corrections()가 전체를
+    # 다시 임베딩하는 구조라(chat/chatbot.py) 거대한 값 하나가 이후 모든 응답을 느리게 만듦
+    q: str = Field(max_length=500)
+    answer: str = Field(default="", max_length=4000)
+    vote: str = Field(default="", max_length=10)           # up | down
+    correction: str = Field(default="", max_length=1000)   # 사용자 정정 (선택)
 
 
 @router.post("/chat")
