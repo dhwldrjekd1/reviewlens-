@@ -21,8 +21,14 @@ const revs = computed(() => [
 const replies = computed(() => (q.value.neg || []).filter((x) => x.reply).slice(0, 4))
 
 const copied = ref(-1)
-function copy(text, i) {
-  try { navigator.clipboard.writeText(text); copied.value = i; setTimeout(() => { copied.value = -1 }, 1400) } catch (e) { /* */ }
+async function copy(text, i) {
+  // writeText()는 Promise라 await 없이 바로 다음 줄을 실행하면 권한 거부 등으로 실패해도
+  // 복사 성공한 것처럼 체크 아이콘이 떠버림(Dashboard.vue의 shareInsight()와 동일하게 await로 처리)
+  try {
+    await navigator.clipboard.writeText(text)
+    copied.value = i
+    setTimeout(() => { copied.value = -1 }, 1400)
+  } catch (e) { /* 복사 실패 — 체크 아이콘을 띄우지 않는 것으로 충분한 피드백 */ }
 }
 </script>
 

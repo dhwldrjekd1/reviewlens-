@@ -33,8 +33,9 @@ def llm_preds():  # LLM(Ollama) 직접 실행 — 느려서 'llm' 인자 줄 때
         try:  # 리뷰 1건 실패해도 전체가 죽지 않게
             for a, s, _, _ in absa_llm.analyze(t):
                 out.add((int(rid), a, s))
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[리뷰 {rid} 분석 실패, 건너뜀: {e}]")  # 원인 없이 조용히 건너뛰면 인프라 실패를
+            # 모델 품질 저하로 오인하기 쉬움(pipeline.py와 동일 패턴)
     return out
 
 if __name__ == "__main__":

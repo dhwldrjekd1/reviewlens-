@@ -15,6 +15,8 @@ def recommend(d, prefs, k=3):
     items = item_aspects(d)
     out = []
     for iid, asp in items.items():
+        if iid not in names:   # item 테이블엔 없는데 aspect_sentiment엔 남아있는 상품(재적재 등) — 건너뜀
+            continue
         score = sum(w * asp.get(a, 0.5) for a, w in prefs.items())  # 없는 속성은 0.5(중립)
         why = [(a, asp[a]) for a in sorted(prefs, key=lambda a: -prefs[a]) if a in asp][:2]
         out.append((score, names[iid], why))
