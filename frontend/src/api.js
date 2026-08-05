@@ -31,8 +31,15 @@ export async function getFeedbackStats() {
 // 그 뒤 실제 LLM 첫 토큰이 프리워밍 요청과 큐잉 경합하며 늦게 올 수 있음) — 그래서 첫 read만이
 // 아니라 "첫 토큰(또는 토큰 없는 즉답/캐시 응답의 evidence+done)"을 받기 전까지 계속 이 넉넉한
 // 타임아웃을 쓰고, 실제 스트리밍이 시작된 뒤에야 idleTimeoutMs로 좁힌다.
-export async function chatStream(q, { onToken, onReplace, onEvidence, onMeta, idleTimeoutMs = 30000, firstChunkTimeoutMs = 90000 } = {}) {
+// signal: 호출부가 진행 중인 스트림을 외부에서 취소하고 싶을 때(예: 컴포넌트 언마운트) 넘기는
+// AbortSignal. 내부 idle/first-chunk 타임아웃용 controller와 별개라, 둘 중 어느 쪽이 먼저
+// abort돼도 fetch가 즉시 중단되도록 이어붙인다.
+export async function chatStream(q, { onToken, onReplace, onEvidence, onMeta, idleTimeoutMs = 30000, firstChunkTimeoutMs = 90000, signal } = {}) {
   const controller = new AbortController()
+  if (signal) {
+    if (signal.aborted) controller.abort()
+    else signal.addEventListener('abort', () => controller.abort())
+  }
   const res = await fetch('/api/chat/stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

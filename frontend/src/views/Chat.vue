@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowLeft, Bot, Plus, Send, Search, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
 import { chatStream, sendFeedback } from '../api.js'
@@ -15,8 +15,13 @@ const messages = ref([])
 const input = ref('')
 const busy = ref(false)
 const box = ref(null)
+let activeController = null   // 진행 중인 스트림 취소용(언마운트 시 중단)
+let unmounted = false         // 언마운트 후엔 늦게 끝난 스트림이 localStorage를 덮어쓰지 않게 막음
 
-function save() { try { localStorage.setItem(KEY, JSON.stringify(messages.value)) } catch (e) { /* quota */ } }
+function save() {
+  if (unmounted) return
+  try { localStorage.setItem(KEY, JSON.stringify(messages.value)) } catch (e) { /* quota */ }
+}
 function load() { try { messages.value = JSON.parse(localStorage.getItem(KEY) || '[]') } catch (e) { messages.value = [] } }
 async function scrollDown() { await nextTick(); if (box.value) box.value.scrollTop = box.value.scrollHeight }
 
@@ -30,8 +35,11 @@ async function ask(text) {
   messages.value.push(bot)
   save(); scrollDown()
   let started = false
+  const controller = new AbortController()
+  activeController = controller
   try {
     await chatStream(q, {
+      signal: controller.signal,
       onMeta: (m) => { bot.intent = m.intent; bot.evN = m.evidence_n },
       onToken: (t) => { if (!started) { bot.text = ''; started = true } bot.text += t; scrollDown() },
       onReplace: (full) => { bot.text = full },
@@ -42,6 +50,7 @@ async function ask(text) {
     if (started) bot.err = '응답이 중간에 끊겼어요. 위 내용까지만 표시됩니다.'
     else bot.text = '응답을 받지 못했어요. (서버/Ollama 확인)'
   } finally {
+    if (activeController === controller) activeController = null
     busy.value = false; save(); scrollDown()
   }
 }
@@ -63,6 +72,7 @@ async function submitFeedback(m, v, correction = '') {
 }
 function newChat() { messages.value = []; save() }
 onMounted(() => { load(); scrollDown() })
+onUnmounted(() => { unmounted = true; activeController?.abort() })
 </script>
 
 <template>
