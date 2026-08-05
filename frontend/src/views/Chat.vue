@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { RouterLink } from 'vue-router'
 import { ArrowLeft, Bot, Plus, Send, Search, ThumbsUp, ThumbsDown } from 'lucide-vue-next'
 import { chatStream, sendFeedback } from '../api.js'
@@ -31,7 +31,10 @@ async function ask(text) {
   input.value = ''
   busy.value = true
   messages.value.push({ role: 'u', text: q })
-  const bot = { role: 'a', text: '', ev: '', intent: '', evN: 0, q, fb: null, showCorr: false, corrText: '', fbBusy: false, err: '' }
+  // reactive()로 만들지 않으면 아래 스트리밍 콜백에서 이 참조를 직접 mutate해도(bot.text += ...)
+  // Vue의 반응성 프록시(set trap)를 안 거쳐 화면이 갱신되지 않음 — 최종 텍스트는 맞지만
+  // 토큰이 올 때마다 실시간으로 안 보이고, busy 값이 바뀌는 순간에야 한 번에 나타났음
+  const bot = reactive({ role: 'a', text: '', ev: '', intent: '', evN: 0, q, fb: null, showCorr: false, corrText: '', fbBusy: false, err: '' })
   messages.value.push(bot)
   save(); scrollDown()
   let started = false
