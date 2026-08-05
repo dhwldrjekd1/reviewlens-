@@ -357,6 +357,7 @@ RL_DB=postgres python -m uvicorn app:app
 | (2026.08.05) `python eval.py llm` 실행 중 일부 리뷰 분석이 실패하면 원인 표시 없이 조용히 건너뛰어, 실제론 인프라 실패(Ollama 다운 등)인데 모델 품질이 낮은 것처럼 보임 | `except Exception: pass`로 완전히 삼키고 있었음(같은 실패를 다루는 `pipeline.py`는 원인을 출력함). 동일하게 실패 원인을 출력하도록 수정 |
 | (2026.08.05, 확인 필요로 남겨뒀던 항목) 상품이 `pipeline.py`의 상품 목록에서 빠진 뒤에도 이전 `aspect_sentiment` 데이터가 남아있으면, 챗봇의 추천 의도(`recommend_live.recommend`)가 `KeyError`로 죽을 수 있음 | `names[iid]`가 무방어 조회였음. `item` 테이블엔 없는 `item_id`는 건너뛰도록 가드 추가, 그런 상황을 실제로 만들어 KeyError 없이 나머지 상품으로 정상 추천되는 것을 확인(`tests/test_recommend_live.py`) |
 | (2026.08.05) "리뷰 응대 가이드"의 복사 버튼을 클립보드 권한이 없는 환경에서 눌러도 복사 성공한 것처럼 체크 아이콘이 뜸 | `navigator.clipboard.writeText()`가 반환하는 Promise를 `await` 없이 바로 다음 줄(`copied.value = i`)을 실행하고 있었음(같은 기능을 하는 `Dashboard.vue`의 `shareInsight()`는 이미 `await`로 올바르게 처리 중이었음). 동일하게 `await`로 수정 |
+| (2026.08.05) `chat_eval.py`(챗봇 행동 평가)가 적대적·엣지 시나리오를 `ask()`로만 돌려서, `ask_stream()`에서만 발생하는 회귀(이번에 실제로 발견된 예외 노출·done 누락 등)를 이 평가로는 영영 못 잡는 구조였음 | 스트림을 끝까지 소비해 `(mode, answer, evidence)`로 조립하는 `_run_stream()`을 추가하고, 적대적·엣지 검증을 `ask()`/`ask_stream()` 두 경로 모두 돌려 각각 통과율을 출력하도록 수정(한쪽이 더 낮으면 경고 출력). 실제로 `python -m chat.chat_eval` 실행해 두 경로 모두 8/8(100%)로 일치하는 것을 확인 |
 
 ---
 

@@ -51,6 +51,24 @@ def _named_in(ans, names):  # 답변에 등장한 상품명 목록
     return [nm for nm in names if any(len(w) >= 2 and w in ans for w in nm.split())]
 
 
+# ask_stream()은 별도 경로(스트리밍 토큰 조립, 사후 언어검증만 있고 ask()의 자기검증(_grounded)은
+# 없음)라 ask()에서만 고친 회귀가 여기선 재발할 수 있음(과거 실제로 그랬음: LLM 예외 노출,
+# done 신호 누락 등). ask()만 계속 돌리면 이런 드리프트를 이 평가가 영영 못 잡으므로,
+# 스트림을 끝까지 소비해 (mode, answer, evidence)로 조립 — ask()와 같은 형태로 비교 가능하게 함
+def _run_stream(d, q):
+    mode, ans, ev = None, "", ""
+    for o in chatbot.ask_stream(d, q):
+        if "meta" in o:
+            mode = o["meta"].get("intent")
+        if "token" in o:
+            ans += o["token"]
+        if "replace" in o:
+            ans = o["replace"]
+        if "evidence" in o:
+            ev = o["evidence"]
+    return mode, ans, ev
+
+
 def _edge_ok(kind, mode, ans, names):
     named = _named_in(ans, names)
     if kind == "grounded_rec":   # 인젝션에도 추천은 실제 상품 근거로
@@ -115,8 +133,8 @@ def main():
     print(f"특정상품 근거 충실   : {prod_ok}/{prod_n}  ({100*prod_ok/prod_n:.0f}%)  ← 그 상품을 실제로 다룸")
     print(f"평균 지연(정상상태)  : {sum(lat)/len(lat):.2f}s  (최소 {min(lat):.2f} / 최대 {max(lat):.2f})")
 
-    # 적대적·엣지 (안전한 실패 검증)
-    print("\n=== 적대적·엣지 (robustness) ===")
+    # 적대적·엣지 (안전한 실패 검증) — ask()/ask_stream() 두 경로 모두 돌려 드리프트 감지
+    print("\n=== 적대적·엣지 (robustness) — ask() ===")
     edge_ok = 0
     for tag, q, kind in EDGE:
         _, mode, _ = chatbot.ground(d, q)
@@ -124,7 +142,18 @@ def main():
         ok = _edge_ok(kind, mode, ans, names)
         edge_ok += ok
         print(f"  [{'PASS' if ok else 'FAIL'}] {tag:<14} {q[:18]:<19} → {ans[:42]}")
-    print(f"\nrobustness 통과 : {edge_ok}/{len(EDGE)}  ({100*edge_ok/len(EDGE):.0f}%)")
+    print(f"\nrobustness 통과(ask)        : {edge_ok}/{len(EDGE)}  ({100*edge_ok/len(EDGE):.0f}%)")
+
+    print("\n=== 적대적·엣지 (robustness) — ask_stream() ===")
+    edge_ok_stream = 0
+    for tag, q, kind in EDGE:
+        mode, ans, _ = _run_stream(d, q)
+        ok = _edge_ok(kind, mode, ans, names)
+        edge_ok_stream += ok
+        print(f"  [{'PASS' if ok else 'FAIL'}] {tag:<14} {q[:18]:<19} → {ans[:42]}")
+    print(f"\nrobustness 통과(ask_stream) : {edge_ok_stream}/{len(EDGE)}  ({100*edge_ok_stream/len(EDGE):.0f}%)")
+    if edge_ok_stream < edge_ok:
+        print("⚠ ask_stream()이 ask()보다 통과율이 낮음 — 스트리밍 경로에 회귀가 있을 수 있음(위 FAIL 항목 확인)")
     print("알려진 한계: '환불 절차' 같은 절차성 질문은 CS '감성 집계'로 답함(감성 분석기지 FAQ봇이 아님).")
 
 
