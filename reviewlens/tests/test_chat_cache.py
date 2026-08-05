@@ -39,3 +39,16 @@ def test_ask_caches_llm_answer_with_correct_mode(monkeypatch):
 
     cached = chatbot._EXACT[chatbot._norm("부정이 가장 많은 항목이 뭐야?")]
     assert cached[2] == "aggregate"   # mode 누락 시 기본값 "review"로 잘못 저장됐었음
+
+
+def test_ask_survives_recall_corrections_failure(monkeypatch):
+    # ask_stream()은 recall_corrections() 실패를 보호하는데 ask()는 무방비였던 회귀(교차검증에서 발견)
+    _reset_cache(monkeypatch)
+    monkeypatch.setattr(chatbot, "ground", lambda d, q: ("근거", "recommend", "추천 답변입니다"))
+
+    def _boom(d, q):
+        raise RuntimeError("임베딩 모델 오류")
+    monkeypatch.setattr(chatbot, "recall_corrections", _boom)
+
+    ans, ctx = chatbot.ask(None, "가성비 좋은거 추천해줘")   # 예외 없이 direct 답변을 그대로 반환해야 함
+    assert ans == "추천 답변입니다"

@@ -119,7 +119,7 @@ onUnmounted(() => { unmounted = true; activeController?.abort() })
                 </span>
               </div>
               <div v-if="m.showCorr" class="corr">
-                <input v-model="m.corrText" placeholder="어떻게 답했어야 할까요? (선택 입력)" :disabled="m.fbBusy"
+                <input v-model="m.corrText" placeholder="어떻게 답했어야 할까요? (선택 입력)" maxlength="1000" :disabled="m.fbBusy"
                   @keydown.enter="submitFeedback(m, 'down', m.corrText)" />
                 <button :disabled="m.fbBusy" @click="submitFeedback(m, 'down', m.corrText)">제출</button>
               </div>

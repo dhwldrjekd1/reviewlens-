@@ -622,7 +622,11 @@ def ask(d, q):
     except Exception as e:
         print(f"[ground() 처리 실패: {e!r}]")  # 서버 로그에만 원인 남기고, 사용자에겐 내부 구현 노출 안 함
         return "질문을 처리하는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요.", ""
-    corr = recall_corrections(d, q) if (ctx or direct) else []   # 교정 메모리 반영
+    try:  # 정정 메모리 조회 실패(DB/임베딩 오류 등)해도 답변 자체는 계속 나가야 함(ask_stream과 동일)
+        corr = recall_corrections(d, q) if (ctx or direct) else []   # 교정 메모리 반영
+    except Exception as e:
+        print(f"[recall_corrections() 처리 실패: {e!r}]")
+        corr = []
     if direct and not corr:                   # 즉답(스몰토크/집계/추천/상품) — LLM 생략
         if ctx:
             _cache_put(q, direct, ctx, mode)
