@@ -1,4 +1,5 @@
 import sqlite3, os, re, threading
+from contextlib import contextmanager
 
 DB = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db", "reviewlens.db")
 # 백엔드 선택: 기본 SQLite(임베디드·제로셋업·로컬), RL_DB=postgres면 Postgres(다중서버 프로덕션용)
@@ -76,10 +77,11 @@ class _SqliteConn:
     직렬화하는데, 기본 백엔드인 이쪽엔 그 보호가 빠져 있었다. FastAPI 동기 핸들러는
     스레드풀에서 실행되므로(check_same_thread=False로 스레드 자체는 허용해도), 잠금 없이
     같은 커넥션에 여러 스레드가 동시에 execute를 호출하면 sqlite3 공식 문서가 경고하는
-    데이터 손상 위험이 있다."""
+    데이터 손상 위험이 있다. RLock인 이유: transaction()이 잠금을 쥔 채로 블록 안에서
+    다시 execute()를 호출하므로(같은 스레드의 재진입) 일반 Lock이면 데드락이 난다."""
     def __init__(self, path):
         self._c = sqlite3.connect(path, check_same_thread=False)
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         with self._lock:
             self._c.execute("PRAGMA journal_mode=WAL")
             self._c.execute("PRAGMA busy_timeout=5000")
@@ -98,34 +100,43 @@ class _SqliteConn:
         with self._lock:
             self._c.commit()
 
+    @contextmanager
+    def transaction(self):
+        """여러 execute()를 하나의 원자적 단위로 묶음(예: pipeline.py의 리뷰별 delete+insert) —
+        블록 전체 동안 잠금을 쥐고 있어 다른 스레드의 문장이 끼어들지 않고, 끝에 커밋(실패 시 롤백)."""
+        with self._lock:
+            try:
+                yield
+                self._c.commit()
+            except Exception:
+                self._c.rollback()
+                raise
+
 
 class _PgConn:
     """sqlite3.Connection 흉내 — 코드의 d.execute(sql, params).fetchall() 패턴을 Postgres에서 그대로.
     psycopg 연결은 스레드 동시 사용이 불가하므로 잠금으로 직렬화한다(이 규모엔 충분).
-    autocommit=True였을 땐 문장 하나하나가 즉시 개별 커밋돼, 호출부(pipeline.py 등)가 기대하는
-    "delete+insert가 한 커밋 안에서 원자적으로 끝남"이 실제로는 보장되지 않았다(commit()이 no-op).
-    이제 일반 트랜잭션(autocommit=False)을 쓰고 commit()이 실제로 커밋하도록 바꿔, 커밋 전에
-    죽으면 그 트랜잭션의 쓰기가 전부 롤백되어 이전 데이터가 보존된다."""
+
+    autocommit=True — 이 커넥션은 api/deps.py에서 프로세스 전역으로 공유되고, FastAPI 동기
+    핸들러는 스레드풀에서 동시 실행되므로 요청 여러 개의 문장이 같은 커넥션에 뒤섞여 들어온다.
+    한때 autocommit=False로 바꿔 "여러 문장을 한 커밋으로 묶는" 걸 시도했었는데, 잠금은 문장
+    하나 단위였던 반면 트랜잭션은 커밋 전까지 여러 문장(=여러 요청)에 걸쳐 열려있게 되어, 한
+    요청의 문장 실패로 인한 rollback이 커밋 전인 다른 요청의 쓰기까지 함께 날려버릴 수 있었다
+    (예: A가 board() 조회 중 커밋 안 하고 있는 사이 B의 feedback insert가 같은 트랜잭션에
+    끼어들었다가, 그 사이 C의 문장 실패로 롤백되면 B의 쓰기가 에러 없이 조용히 사라짐).
+    autocommit=True로 되돌려 문장 하나 = 커밋 하나로 만들면 이 경합이 사라진다. 여러 문장을
+    진짜 원자적으로 묶어야 하는 곳(pipeline.py)은 아래 transaction()을 명시적으로 쓴다."""
     def __init__(self, dsn):
         import psycopg
-        self._c = psycopg.connect(dsn)
-        self._lock = threading.Lock()
+        self._c = psycopg.connect(dsn, autocommit=True)
+        self._lock = threading.RLock()   # transaction()이 잠금을 쥔 채 execute()를 재호출하므로 RLock
 
     def execute(self, sql, params=None):
         with self._lock:
             cur = self._c.cursor()
-            try:
-                cur.execute(_to_pg(sql), params or None)
-                rows = [tuple(_dec(v) for v in r) for r in cur.fetchall()] if cur.description else []
-            except Exception:
-                # Postgres는 SQLite와 달리 문장 하나가 실패하면 트랜잭션 전체가 "aborted" 상태로
-                # 잠겨 이후 문장도 전부 거부한다. 여기서 즉시 롤백해 이 커넥션을 계속 쓸 수 있게 함
-                # (이렇게 하면 실패한 문장 이전에 이 트랜잭션에서 커밋 안 된 쓰기도 함께 롤백되는데,
-                # 이는 "delete+insert 원자성" 관점에서 오히려 올바른 동작 — 절반만 반영되지 않음).
-                self._c.rollback()
-                raise
-            finally:
-                cur.close()
+            cur.execute(_to_pg(sql), params or None)
+            rows = [tuple(_dec(v) for v in r) for r in cur.fetchall()] if cur.description else []
+            cur.close()
             return _Result(rows)
 
     def executescript(self, script):
@@ -134,10 +145,20 @@ class _PgConn:
             for stmt in filter(str.strip, script.split(";")):
                 cur.execute(_to_pg_ddl(stmt))
             cur.close()
-        self._c.commit()   # 스키마 생성(DDL)도 명시적으로 커밋해야 반영됨
 
     def commit(self):
-        self._c.commit()
+        pass   # autocommit=True → 명시적 commit은 무해한 no-op
+
+    @contextmanager
+    def transaction(self):
+        """여러 execute()를 하나의 진짜 원자적 트랜잭션으로 묶음(예: pipeline.py의 리뷰별
+        delete+insert) — 블록 전체 동안 잠금을 쥐고 있어 다른 스레드의 문장이 끼어들지 않는다.
+        psycopg는 autocommit 커넥션에서도 Connection.transaction()으로 임시 트랜잭션을 열 수
+        있고, 블록 정상 종료 시 커밋·예외 시 자동 롤백한다(직접 rollback()을 부르면 안 됨 —
+        이 블록 안에서는 psycopg가 트랜잭션 상태를 관리하므로 충돌한다)."""
+        with self._lock:
+            with self._c.transaction():
+                yield
 
 
 def get_db():

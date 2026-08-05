@@ -35,25 +35,25 @@ def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 �
     failed = 0
     for r in reviews():
         rid, iid = int(r["review_id"]), r["item_id"]
-        d.execute("insert or replace into review(review_id,item_id,raw_text,rating) values(?,?,?,?)",
-                  (rid, iid, r["text"], int(r["rating"])))
-        d.commit()   # 리뷰 원문은 분석 전에 바로 커밋 — 아래 analyze()가 오래 걸려도 락을 물고 있지 않게
+        with d.transaction():   # 리뷰 원문은 분석 전에 바로 커밋 — 아래 analyze()가 오래 걸려도 락을 물고 있지 않게
+            d.execute("insert or replace into review(review_id,item_id,raw_text,rating) values(?,?,?,?)",
+                      (rid, iid, r["text"], int(r["rating"])))
         try:  # 리뷰 1건 분석 실패(긴 텍스트, LLM 응답 파싱 실패 등)해도 나머지가 죽지 않게
-            results = analyzer.analyze(r["text"])   # 쓰기 트랜잭션 밖에서 실행 — 수 초~분 걸려도 락 무관
+            results = analyzer.analyze(r["text"])   # 트랜잭션 밖에서 실행 — 수 초~분 걸려도 락 무관
         except Exception as e:
             failed += 1
             print(f"[리뷰 {rid} 분석 실패, 건너뜀: {e}]")
-            d.execute("delete from aspect_sentiment where review_id=?", (rid,))  # 이전 결과는 비움
-            d.commit()
+            with d.transaction():
+                d.execute("delete from aspect_sentiment where review_id=?", (rid,))  # 이전 결과는 비움
             continue
-        # analyze()가 끝난 뒤에야 delete+insert를 열어, 이 리뷰 하나의 delete+insert+commit이
-        # 항상 같은(짧은) 트랜잭션 안에서 원자적으로 끝나게 함 — 커밋 전에 죽어도 이전 데이터가
-        # 그대로 남아있고, 쓰기 락도 이 짧은 구간에만 걸려 동시 요청(/api/feedback 등)을 막지 않음
-        d.execute("delete from aspect_sentiment where review_id=?", (rid,))
-        for aspect, senti, conf, ev in results:
-            d.execute("insert into aspect_sentiment(review_id,item_id,aspect,sentiment,confidence,evidence)"
-                      " values(?,?,?,?,?,?)", (rid, iid, aspect, senti, conf, ev))
-        d.commit()
+        # analyze()가 끝난 뒤에야 delete+insert를 열어, 이 리뷰 하나의 delete+insert가 항상 같은
+        # (짧은) 트랜잭션 안에서 원자적으로 끝나게 함 — 커밋 전에 죽어도 이전 데이터가 그대로
+        # 남아있고, 트랜잭션도 이 짧은 구간에만 걸려 동시 요청(/api/feedback 등)을 막지 않음
+        with d.transaction():
+            d.execute("delete from aspect_sentiment where review_id=?", (rid,))
+            for aspect, senti, conf, ev in results:
+                d.execute("insert into aspect_sentiment(review_id,item_id,aspect,sentiment,confidence,evidence)"
+                          " values(?,?,?,?,?,?)", (rid, iid, aspect, senti, conf, ev))
     if failed:
         print(f"[분석 실패 {failed}건 — 해당 리뷰는 원문만 저장되고 속성/감성은 비어있음]")
 
