@@ -5,6 +5,8 @@ sleep이 끝날 때까지 블로킹돼 elapsed가 커진다.
 import threading
 import time
 
+import pytest
+
 import pipeline
 from store import db
 
@@ -47,3 +49,19 @@ def test_slow_analyze_does_not_block_concurrent_write(tmp_path, monkeypatch):
     t.join(timeout=5)
     assert done.is_set()
     assert elapsed < 0.5   # 락 경합 없이 즉시 끝나야 함
+
+
+def test_item_seeding_survives_first_review_transaction_failure(tmp_path, monkeypatch):
+    # SQLite는 커밋 없이 실행한 쓰기가 암묵적 트랜잭션에 계속 쌓인다. item 시딩 루프에
+    # 자체 커밋이 없으면, 뒤이은 첫 리뷰의 d.transaction() 블록이 실패해 롤백될 때
+    # 무관한 item insert까지 같이 날아갈 수 있었다(교차검증에서 발견).
+    monkeypatch.setattr(db, "DB", str(tmp_path / "t.db"))
+    monkeypatch.setattr(pipeline, "reviews",
+                         lambda: [{"review_id": "1", "item_id": "P1", "text": "x", "rating": "숫자아님"}])
+
+    with pytest.raises(ValueError):   # int("숫자아님")이 리뷰 insert 트랜잭션 안에서 실패
+        pipeline.run(_SlowAnalyzer(delay=0))
+
+    fresh = db.get_db()   # 새 커넥션으로 재확인 — 이전 커넥션의 캐시된 상태가 아니라 실제 디스크 상태
+    count = fresh.execute("select count(*) from item").fetchone()[0]
+    assert count == len(pipeline.items)   # 15개 상품이 롤백 안 되고 그대로 남아있어야 함

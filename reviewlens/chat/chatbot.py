@@ -569,7 +569,10 @@ def ask_stream(d, q):
     if direct and not corr:                  # 즉답(스몰토크/집계/추천/상품) — LLM 생략
         yield {"token": direct}
         if ctx:                              # 스몰토크(ctx 없음)는 캐시·근거 생략
-            _cache_put(q, direct, ctx, mode)
+            try:  # 캐시 저장 실패해도 이미 만든 즉답은 유효하므로 done은 반드시 보냄
+                _cache_put(q, direct, ctx, mode)
+            except Exception as e:
+                print(f"[_cache_put() 처리 실패: {e!r}]")
         yield {"evidence": ctx, "done": True}
         return
     if not ctx:                              # 관련 리뷰 못 찾음(엉뚱한 단정 회피)
@@ -629,7 +632,10 @@ def ask(d, q):
         corr = []
     if direct and not corr:                   # 즉답(스몰토크/집계/추천/상품) — LLM 생략
         if ctx:
-            _cache_put(q, direct, ctx, mode)
+            try:  # 캐시 저장 실패해도 이미 만든 즉답은 유효하므로 그대로 반환
+                _cache_put(q, direct, ctx, mode)
+            except Exception as e:
+                print(f"[_cache_put() 처리 실패: {e!r}]")
         return direct, ctx
     if not ctx:                               # 관련 리뷰 못 찾음
         return "질문과 관련된 리뷰를 찾지 못했어요. 상품명이나 배송·품질 같은 속성으로 물어봐 주세요.", ""
@@ -647,11 +653,14 @@ def ask(d, q):
                 ans = cand
         if _bad_lang(ans):  # 끝내 실패: 깨진 문장 대신 근거 폴백
             return "깔끔한 한국어 답변을 만들지 못했어요. 아래 근거 리뷰를 참고해주세요.\n" + ctx, ctx
-        _cache_put(q, ans, ctx, mode)
-        return ans, ctx
     except Exception as e:
         print(f"[LLM 생성 실패: {e!r}]")  # 서버 로그에만 원인 남기고, 사용자에겐 내부 구현 노출 안 함
         return "답변을 생성하는 중 문제가 생겼어요. 아래 근거 리뷰를 참고해주세요.\n" + ctx, ctx
+    try:  # 캐시 저장 실패해도 이미 만든 정상 답변은 그대로 반환(ask_stream과 동일하게 분리)
+        _cache_put(q, ans, ctx, mode)
+    except Exception as e:
+        print(f"[_cache_put() 처리 실패: {e!r}]")
+    return ans, ctx
 
 
 # --- 오프라인 사전계산: 상품별 자연스러운 한국어 요약 (빌드 시 1회, ~상품 수만큼 LLM) ---

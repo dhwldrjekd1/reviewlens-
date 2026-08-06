@@ -33,7 +33,11 @@ def _prewarm():
             pass
 
 
-threading.Thread(target=_prewarm, daemon=True).start()
+# RL_SKIP_PREWARM=1이면 건너뜀 — 테스트(tests/conftest.py)가 이 스레드를 켜두면 실제(monkeypatch
+# 안 된) chatbot 상태(_EXACT/_CACHE, 실제 임베딩 모델)를 건드려, 같은 모듈 상태를 다루는 다른
+# 테스트와 타이밍에 따라 결과가 섞일 수 있었음(교차검증에서 발견)
+if not os.environ.get("RL_SKIP_PREWARM"):
+    threading.Thread(target=_prewarm, daemon=True).start()
 
 
 # SPA 폴백 — /api·/assets 외 모든 GET 경로는 Vue 앱(index.html) 반환, 클라이언트 라우터가 처리.

@@ -28,9 +28,13 @@ def reviews():
 
 def run(analyzer=absa_llm):  # 기본 LLM ABSA, sentiment(부트스트랩)도 넘길 수 있음
     d = db.get_db()
-    for iid, (name, cat) in items.items():
-        d.execute("insert or replace into item(item_id,name,category) values(?,?,?)",
-                  (iid, name, cat))
+    # SQLite는 커밋 없이 실행한 쓰기가 암묵적 트랜잭션에 계속 쌓여, 뒤이은 첫 d.transaction()
+    # 블록(아래 리뷰 루프)이 실패해 롤백되면 이 무관한 item insert들까지 같이 날아갈 수 있었음
+    # (교차검증에서 발견). 여기서 바로 커밋해 리뷰 루프와 트랜잭션 경계를 분리
+    with d.transaction():
+        for iid, (name, cat) in items.items():
+            d.execute("insert or replace into item(item_id,name,category) values(?,?,?)",
+                      (iid, name, cat))
 
     failed = 0
     for r in reviews():
