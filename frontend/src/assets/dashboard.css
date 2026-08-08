@@ -34,6 +34,8 @@
 .row{display:grid;gap:18px}.r3{grid-template-columns:1fr 1fr 1fr}.r2{grid-template-columns:1fr 1fr}
 .row-15{grid-template-columns:1.5fr 1fr}.row-16{grid-template-columns:1.6fr 1fr}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;box-shadow:0 1px 2px rgba(30,40,70,.04),0 6px 20px rgba(30,40,70,.05);transition:box-shadow .18s;display:flex;flex-direction:column}.panel:hover{box-shadow:0 6px 26px rgba(30,40,70,.10)}
+.err-panel{align-items:center;gap:12px;text-align:center;padding:36px 24px}
+.retry-btn{border:1px solid var(--line);border-radius:10px;padding:9px 18px;background:var(--card);cursor:pointer;font-weight:600;font-size:14px}.retry-btn:hover{background:var(--line)}
 .phead{display:flex;align-items:center;margin-bottom:18px}.phead h3{font-size:20px;font-weight:800}
 .phead .i{color:#c2c6cf;margin-left:5px;font-size:15px;display:flex}.phead .more{margin-left:auto;font-size:13.5px;color:#9aa0ac;border:1px solid var(--line);border-radius:8px;padding:4px 10px}
 .snap{display:flex;gap:26px;align-items:center;flex:1}

@@ -1,7 +1,6 @@
 """app.py의 SPA 캐치올(GET /{full_path:path})이 /api/* 요청을 가로채 200 HTML로
 삼키지 않는지 검증. 실제 SPA 라우트와 진짜 GET API는 그대로 동작해야 한다.
 """
-import pytest
 from fastapi.testclient import TestClient
 
 import app as app_module

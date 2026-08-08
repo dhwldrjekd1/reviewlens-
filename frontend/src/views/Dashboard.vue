@@ -19,7 +19,7 @@ const TABS = { strategy: StrategyTab, review: ReviewTab, product: ProductTab, cu
   rival: RivalTab, market: MarketTab, alert: AlertTab, data: DataTab, setting: SettingTab }
 const TAB_KEYS = Object.keys(TABS)
 
-const { board, load } = useBoard()
+const { board, error, load } = useBoard()
 const active = ref('strategy')
 const toastMsg = ref('')
 
@@ -70,10 +70,14 @@ async function shareInsight() {
   catch (e) { toast('복사 권한을 확인하세요') }
 }
 
+async function retryLoad() {
+  try { await load() } catch (e) { /* error는 useBoard()의 error ref로 이미 반영됨 */ }
+}
+
 onMounted(async () => {
   const h = location.hash.slice(1)
   if (TAB_KEYS.includes(h)) active.value = h
-  try { await load() } catch (e) { /* board fetch failed */ }
+  await retryLoad()
 })
 </script>
 
@@ -84,6 +88,10 @@ onMounted(async () => {
       <TopBar :ds-label="dsLabel" :bell-count="bellCount" @bell="go('alert')" @share="shareInsight" />
       <div class="wrap">
         <component v-if="board" :is="activeComp" :board="board" @go="go" />
+        <div v-else-if="error" class="panel err-panel">
+          <p>데이터를 불러오지 못했어요. 서버 상태를 확인한 뒤 다시 시도해주세요.</p>
+          <button class="retry-btn" @click="retryLoad">다시 시도</button>
+        </div>
         <div v-else class="panel">데이터를 불러오는 중…</div>
       </div>
     </div>
