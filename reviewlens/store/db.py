@@ -112,6 +112,19 @@ class _SqliteConn:
                 self._c.rollback()
                 raise
 
+    @contextmanager
+    def snapshot(self):
+        """여러 SELECT가 전부 같은 시점의 데이터를 보게 함(board()의 다중 집계 조회용) —
+        기본(autocommit) 모드에서는 SELECT가 트랜잭션을 안 열어 문장마다 최신값을 따로 봄.
+        명시적으로 BEGIN을 열면 WAL 모드에서 그 시점의 스냅샷이 트랜잭션 끝까지 유지되어,
+        그 사이 다른 커넥션이 커밋해도 이 블록 안에서는 안 보인다(직접 재현 검증함)."""
+        with self._lock:
+            self._c.execute("BEGIN")
+            try:
+                yield
+            finally:
+                self._c.commit()   # 읽기 전용이라 commit/rollback 의미 차이 없음 — 스냅샷 종료 목적
+
 
 class _PgConn:
     """sqlite3.Connection 흉내 — 코드의 d.execute(sql, params).fetchall() 패턴을 Postgres에서 그대로.
@@ -159,6 +172,24 @@ class _PgConn:
         with self._lock:
             with self._c.transaction():
                 yield
+
+    @contextmanager
+    def snapshot(self):
+        """여러 SELECT가 전부 같은 시점의 데이터를 보게 함(board()의 다중 집계 조회용) —
+        Postgres 기본 격리수준(READ COMMITTED)은 트랜잭션으로 묶어도 문장마다 자기 시작
+        시점 기준 최신 커밋값을 보므로, 그것만으론 여러 SELECT의 일관성이 보장 안 된다.
+        이 블록에서만 REPEATABLE READ로 격상했다가 끝나면 되돌린다. 잠금을 블록 전체 동안
+        쥐고 있어(RLock) 이 상태 전환 중간에 다른 요청이 끼어들 수 없다 — psycopg는 트랜잭션
+        진행 중 isolation_level 변경 시도 시 자체적으로 예외를 던지므로(psycopg 소스로 확인)
+        이중으로 안전하다."""
+        import psycopg
+        with self._lock:
+            self._c.isolation_level = psycopg.IsolationLevel.REPEATABLE_READ
+            try:
+                with self._c.transaction():
+                    yield
+            finally:
+                self._c.isolation_level = None   # 다음 문장부터 다시 서버 기본값(READ COMMITTED)
 
 
 def get_db():
